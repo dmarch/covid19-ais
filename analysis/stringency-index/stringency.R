@@ -16,7 +16,7 @@ library(tmap)
 output_plot <- "results/stringency"
 if (!dir.exists(output_plot)) dir.create(output_plot, recursive = TRUE)
 
-## here we store plots
+## here we store data
 output_data <- "data/out/stringency"
 if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 
