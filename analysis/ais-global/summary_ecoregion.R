@@ -1,6 +1,7 @@
 #-----------------------------------------------------------------------------------------
-# summarize_FAO           Summarize data by FAO areas
+# summary_ecoregion           Summarize data by ecoregions
 #-----------------------------------------------------------------------------------------
+
 
 
 ## libraries
@@ -29,7 +30,7 @@ source("https://raw.githubusercontent.com/dmarch/abigoos/master/R/utils.R")  # b
 input_dir <- "data/out/ais-global/density/"
 
 # create output directory
-out_dir <- "results/ais-global/fao/"
+out_dir <- "results/ais-global/ecoregion/"
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 # select variables to summarize
@@ -37,20 +38,20 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 dates <- c("20190401", "20200401")
 
 
+
 #----------------------------------------------------
 # Part 1. Prepare polygon and combination table
 #----------------------------------------------------
 
-# import polygon
-poly <- st_read("data/input/FAO_AREAS/FAO_AREAS.shp", quiet = TRUE, type=3)
+# import ecoregions
+# source: marineregions
+poly <- st_read("data/input/MEOW/meow_ecos.shp")
 
 # reproject (use clip_to_globe function from OHI-Science)
 # https://github.com/OHI-Science/ohiprep_v2020/blob/18880e6ab7eb1607f754660b67d4b3b46f2a6043/globalprep/spp/v2020/_setup/common_fxns.R
 poly_moll <- poly %>%
-  filter(F_LEVEL == "MAJOR") %>%
   clip_to_globe() %>%  # ensures no coordinates outside +-180, +-90
-  st_transform("+proj=moll") %>%
-  mutate(F_CODE = as.character(F_CODE))
+  st_transform("+proj=moll")
 plot(st_geometry(poly_moll))
 
 # Prepare combinations
@@ -64,7 +65,7 @@ combinations <- data.frame(
 #----------------------------------------------------
 
 # Prepare cluster for parallel computing
-cl <- makeCluster(6)
+cl <- makeCluster(10)
 registerDoParallel(cl)
 
 # Extract data for each combination  
@@ -84,7 +85,7 @@ data <- bind_rows(foreach(i = 1:nrow(combinations), .packages=c("dplyr", "raster
   extr <- exact_extract(rast, poly_moll, "mean")
   
   # generate data.frame
-  df <- data.frame(F_CODE = poly_moll$F_CODE, var = ivar, year = iyear, measure = "dens", value = extr)
+  df <- data.frame(ECO_CODE = poly$ECO_CODE, var = ivar, year = iyear, measure = "dens", value = extr)
   df
 })
 
@@ -96,13 +97,13 @@ stopCluster(cl)  # Stop cluster
 #----------------------------------------------------
 
 change <- data %>%
-  group_by(F_CODE, var) %>%
+  group_by(ECO_CODE, var) %>%
   arrange(year) %>%
   summarize(delta = last(value)-first(value),
             per = 100*(delta/first(value)),
             perlog = 100*log(last(value)/first(value)))
 
-change$F_CODE <- as.character(change$F_CODE)
+change$ECO_CODE <- as.character(change$ECO_CODE)
 
 
 #----------------------------------------------------
@@ -110,7 +111,8 @@ change$F_CODE <- as.character(change$F_CODE)
 #----------------------------------------------------
 
 # combine with polygon map
-poly_ais <- left_join(poly_moll, change, by = c("F_CODE" = "F_CODE"))
+poly_moll$ECO_CODE <- as.character(poly_moll$ECO_CODE)
+poly_ais <- left_join(poly_moll, change, by = c("ECO_CODE" = "ECO_CODE"))
 
 # transform to data.frame
 df <- data.frame(poly_ais)
@@ -154,21 +156,23 @@ for(i in 1:length(vars)){
   
   
   # export plot
-  out_file <- paste0(out_dir, sprintf("%s_fao_change.png", ivar))
+  out_file <- paste0(out_dir, sprintf("%s_meow_change.png", ivar))
   tmap_save(tm = p1, filename = out_file, width=25, height=12, units = "cm")
 }
+
 
 
 #----------------------------------------------------
 # Part 5. Table
 #----------------------------------------------------
 
+
 # transform to wide format
-data_delta <- dcast(df, F_CODE + NAME_EN ~ var, value.var = "delta")
-data_per <- dcast(df, F_CODE + NAME_EN ~ var, value.var = "per")
+data_delta <- dcast(df, ECOREGION + PROVINCE ~ var, value.var = "delta")
+data_per <- dcast(df, ECOREGION + PROVINCE ~ var, value.var = "per")
 
 # combine delta with %
-data <- merge(data_delta, data_per, by=c("F_CODE"))
+data <- merge(data_delta, data_per, by=c("ECOREGION", "PROVINCE"))
 
 # filter countries with no data (Caspian Sea)
 data <- filter(data, !is.na(COUNT.x))
@@ -177,7 +181,7 @@ data <- filter(data, !is.na(COUNT.x))
 data <- arrange(data, COUNT.x)
 
 # Order columns
-data <- dplyr::select(data, "NAME_EN.x",
+data <- dplyr::select(data, "ECOREGION", "PROVINCE",
                       "COUNT.x", "COUNT.y",
                       "CARGO.x", "CARGO.y",
                       "TANKER.x", "TANKER.y",
@@ -186,7 +190,7 @@ data <- dplyr::select(data, "NAME_EN.x",
                       "OTHER.x", "OTHER.y")
 
 # set indices oer columns
-idx_abs <- c(2, 4, 6, 8, 10, 12)
+idx_abs <- c(3, 5, 7, 9, 11, 13)
 idx_rel <- idx_abs + 1
 
 # transform values to 10^-3
@@ -197,10 +201,10 @@ data[,idx_abs] <- data[,idx_abs] * 1000  # select columns
 
 # typology
 typology <- data.frame(
-  col_keys = names(data)[1:13],
-  what = c("FAO major area", rep(c("All vessels", "Cargo", "Tanker", "Passenger", "Fishing", "Other"),each=2)),
-  measure = c("FAO major area", rep(c("Absolute change", "Relative change"), 6)),
-  units = c("FAO major area", rep(c("delta", "(%)"), 6)),
+  col_keys = names(data)[1:14],
+  what = c("Ecoregion", "Province", rep(c("All vessels", "Cargo", "Tanker", "Passenger", "Fishing", "Other"),each=2)),
+  measure = c("Ecoregion", "Province", rep(c("Absolute change", "Relative change"), 6)),
+  units = c("Ecoregion", "Province", rep(c("delta", "(%)"), 6)),
   stringsAsFactors = FALSE)
 
 # create table
@@ -232,18 +236,19 @@ ft <- bold(ft, i=3, bold=FALSE, part = "header") # bold header
 ft <- set_table_properties(ft, width = 1, layout = "autofit")  # autofit to width
 
 # add header
-ft <- add_header_lines(ft, values = "Suppl. Data 4.")
+ft <- add_header_lines(ft, values = "Suppl. Data 3.")
 ft <- fontsize(ft, size = 7, part = "all")
 
 
 #### Export to docx
 
+
 # create a new document object
 doc=new.word.doc()
 
 # add the report title and an empty line
-add.title(doc, "Supplementary Data 4")
-add.text(doc, "Average change for each vessel category for each FAO area. Estimated changes correspond to the difference between April 2020, when more stringent lockdown measures took place globally, and April 2019, as a reference period. Data ordered by increasing absolute change for `All vessels` category.")
+add.title(doc, "Supplementary Data 3")
+add.text(doc, "Average change for each vessel category for each marine ecoregion. Estimated changes correspond to the difference between April 2020, when more stringent lockdown measures took place globally, and April 2019, as a reference period. Data ordered by increasing absolute change for `All vessels` category.")
 add.empty.line(doc)
 
 # add table
@@ -253,4 +258,6 @@ add.table(doc, ft)
 end.landscape(doc)
 #start.landscape(doc)
 # generate the Word document using the print function
-print(doc, target=paste0(out_dir, "suppData4.docx"))
+print(doc, target=paste0(out_dir, "suppData3.docx"))
+
+
