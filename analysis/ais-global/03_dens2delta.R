@@ -12,8 +12,11 @@ source("https://raw.githubusercontent.com/dmarch/abigoos/master/R/utils.R")  # b
 source("scr/fun_ais.R")
 
 
+# set input directory
+input_dir <- "data/out/ais-global/density/"
+
 # create output directory
-out_dir <- "data/out/ais-global/density/"
+out_dir <- "data/out/ais-global/delta/"
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 # select variables to compare
@@ -30,8 +33,8 @@ for (j in 1:length(vars)){
   
   # select files
   jvar <- vars[j]
-  tif1 <- list.files(out_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens_moll.tif$", dates[1], jvar))
-  tif2 <- list.files(out_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens_moll.tif$", dates[2], jvar))
+  tif1 <- list.files(input_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens_moll.tif$", dates[1], jvar))
+  tif2 <- list.files(input_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens_moll.tif$", dates[2], jvar))
   
   # import raster
   r1 <- raster(tif1)
@@ -75,8 +78,8 @@ for (j in 1:length(vars)){
   
   # select files
   jvar <- vars[j]
-  tif1 <- list.files(out_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens.tif$", dates[1], jvar))
-  tif2 <- list.files(out_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens.tif$", dates[2], jvar))
+  tif1 <- list.files(input_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens.tif$", dates[1], jvar))
+  tif2 <- list.files(input_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens.tif$", dates[2], jvar))
   
   # import raster
   r1 <- raster(tif1)
@@ -122,7 +125,7 @@ for(i in 1:length(vars)){
   ivar <- vars[i]
   
   # import delta
-  delta <- raster(sprintf("data/out/ais-global/density/%s_delta_mol.tif", ivar))
+  delta <- raster(sprintf("data/out/ais-global/delta/%s_delta_mol.tif", ivar))
   
   # get min and max values
   mindelta <- minValue(delta)
@@ -155,7 +158,7 @@ for(i in 1:length(vars)){
   cols <- c(low_cols,"#f7f7f7","#f7f7f7", high_cols)
 
   # figure plot
-  pngfile <- sprintf("data/out/ais-global/density/%s_delta_mol.png", ivar)
+  pngfile <- sprintf("data/out/ais-global/delta/%s_delta_mol.png", ivar)
   png(pngfile, width=3000, height=1750, res=300)
   plotDensMol(r = delta, zlim = c(qmin, qmax), mollT = FALSE, logT = FALSE, breaks=breaks,
               col = cols, main = sprintf("%s (delta)", ivar),

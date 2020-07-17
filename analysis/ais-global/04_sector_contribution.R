@@ -9,10 +9,10 @@ source("https://raw.githubusercontent.com/dmarch/abigoos/master/R/utils.R")  # b
 source("scr/fun_ais.R")
 
 # set input dir
-input_dir <- "data/out/ais-global/density/"
+input_dir <- "data/out/ais-global/delta/"
 
 # create output directory
-out_dir <- "data/out/ais-global/delta/"
+out_dir <- "data/out/ais-global/contrib/"
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 # select variables to summarize
