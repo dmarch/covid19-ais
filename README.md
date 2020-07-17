@@ -25,3 +25,4 @@ Dataset (version) |  Path                         | Description
 ----------------- | ----------------------------- | --------------------- 
 GADM (v 3.6)      | `data/input/gadm`             | Database of Global Administrative Areas (https://gadm.org/)
 EEZ (v 11)        | `data/input/marine_regions/`  | Exclusive Economic Zones (https://www.marineregions.org/)
+S-AIS             | `data/input/exacEarth/`       | S-AIS datasets from ExactEarth (https://www.exactearth.com/)
