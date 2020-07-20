@@ -21,6 +21,7 @@ library(egg)
 library(reshape2)
 library(flextable)
 library(officer)
+library(fasterize)
 source("scr/fun_common.R")
 source("scr/fun_table.R")
 source("https://raw.githubusercontent.com/dmarch/abigoos/master/R/utils.R")  # bb()
@@ -126,7 +127,8 @@ stopCluster(cl)  # Stop cluster
 change <- data %>%
   group_by(MRGID, var) %>%
   arrange(year) %>%
-  summarize(delta = last(value)-first(value),
+  summarize(dens2020 = last(value),
+            delta = last(value)-first(value),
             per = 100*(delta/first(value)),
             perlog = 100*log(last(value)/first(value)))
 
@@ -151,7 +153,6 @@ change %>%
 length(unique(change$MRGID))  # number of EEZ: 255
 
 
-
 #----------------------------------------------------
 # Part 5. Plot map
 #----------------------------------------------------
@@ -163,6 +164,10 @@ poly_ais <- left_join(poly_moll, change, by = c("MRGID" = "MRGID"))
 # transform to data.frame
 df <- data.frame(poly_ais)
 df <- dplyr::select(df, -geom)
+
+# Export table
+outfile <- "data/out/ais-global/eez_change.csv"
+write.csv(df, outfile, row.names = FALSE)
 
 # import landmask
 data(countriesHigh, package = "rworldxtra", envir = environment())

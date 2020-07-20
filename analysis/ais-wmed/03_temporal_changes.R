@@ -144,10 +144,10 @@ change <- mave_sel %>%
 max_decline <- change %>%
   filter(date2020 > as.Date("2020-03-11")) %>%
   group_by(type) %>%
-  summarize(max_drop = min(change_per, na.rm=TRUE),
-            last_drop = last(change_per)) %>%
+  summarize(max_drop = min(change_perlog, na.rm=TRUE),
+            last_drop = last(change_perlog)) %>%
   merge(., change, by = 'type') %>%
-  filter(max_drop == change_per) %>%
+  filter(max_drop == change_perlog) %>%
   dplyr::select(type, max_drop, date2020, last_drop) %>%
   rename(date_max = date2020) %>%
   mutate(date_last = as.Date("2020-06-30"))
@@ -211,7 +211,7 @@ save_as_image(ft, path = img_file)
 
 
 # plot (all vessels)
-p1 <- ggplot(filter(change, type=="All"), mapping=aes(x = date2020, y = change_per, fill = change_positive)) +
+p1 <- ggplot(filter(change, type=="All"), mapping=aes(x = date2020, y = change_perlog, fill = change_positive)) +
   geom_col(alpha=1, width=0.9) +
   ylab("") + xlab("") +
   geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
@@ -223,7 +223,7 @@ p1 <- ggplot(filter(change, type=="All"), mapping=aes(x = date2020, y = change_p
 
 
 # plot (categories)
-p2 <- ggplot(filter(change, type!="All"), mapping=aes(x = date2020, y = change_per, fill = change_positive)) +
+p2 <- ggplot(filter(change, type!="All"), mapping=aes(x = date2020, y = change_perlog, fill = change_positive)) +
   geom_col(alpha=1, width=0.9) +
   ylab("") + xlab("") +
   geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
@@ -254,7 +254,7 @@ ggsave(out_file, p, width=20, height=20, units = "cm")
 
 
 #-----------------------------------------------------------------
-# 3. lot number of vessels per day since 2016
+# 3. plot number of vessels per day since 2016
 #-----------------------------------------------------------------
 
 mave_sel <- mave

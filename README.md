@@ -29,3 +29,4 @@ S-AIS             | `data/input/exacEarth/`       | S-AIS datasets from ExactEar
 FAO areas         | `data/input/FAO_AREAS/`       | FAO major fishing areas (http://www.fao.org/fishery/area/search/en)
 Marine ecoregions | `data/input/MEOW/`            | Marine ecoregions of the world (https://www.worldwildlife.org/publications/marine-ecoregions-of-the-world-a-bioregionalization-of-coastal-and-shelf-areas)
 High Seas         | `data/input/marine_regions/Intersect_EEZ_IHO_v4_2020` | Intersection between EEZ and IHO areas (https://www.marineregions.org/)
+Income class      | `data/input/worldbank`        | Income class per country by World Bank (https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups)
