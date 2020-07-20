@@ -65,7 +65,7 @@ combinations <- data.frame(
 #----------------------------------------------------
 
 # Prepare cluster for parallel computing
-cl <- makeCluster(10)
+cl <- makeCluster(6)
 registerDoParallel(cl)
 
 # Extract data for each combination  
@@ -169,7 +169,7 @@ for(i in 1:length(vars)){
 
 # transform to wide format
 data_delta <- dcast(df, ECOREGION + PROVINCE ~ var, value.var = "delta")
-data_per <- dcast(df, ECOREGION + PROVINCE ~ var, value.var = "per")
+data_per <- dcast(df, ECOREGION + PROVINCE ~ var, value.var = "perlog")
 
 # combine delta with %
 data <- merge(data_delta, data_per, by=c("ECOREGION", "PROVINCE"))

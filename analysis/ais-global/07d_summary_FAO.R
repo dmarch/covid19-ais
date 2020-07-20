@@ -165,7 +165,7 @@ for(i in 1:length(vars)){
 
 # transform to wide format
 data_delta <- dcast(df, F_CODE + NAME_EN ~ var, value.var = "delta")
-data_per <- dcast(df, F_CODE + NAME_EN ~ var, value.var = "per")
+data_per <- dcast(df, F_CODE + NAME_EN ~ var, value.var = "perlog")
 
 # combine delta with %
 data <- merge(data_delta, data_per, by=c("F_CODE"))

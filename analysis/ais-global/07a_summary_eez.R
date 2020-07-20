@@ -84,15 +84,15 @@ ov_area <- binsurf(ov)
 avg20 <- values(dens20 * rpoly) %>% mean(na.rm=TRUE) 
 avg19 <- values(dens19 * rpoly) %>% mean(na.rm=TRUE) 
 (avg20-avg19) * 1000  # -2.915194
-100*(avg20-avg19)/avg19  # -3.272028
-
+#100*(avg20-avg19)/avg19  # -3.272028
+100*log(avg20/avg19)  # -3.326756
 
 #----------------------------------------------------
 # Part 3. Extract data from shipping rasters
 #----------------------------------------------------
 
 # Prepare cluster for parallel computing
-cl <- makeCluster(10)
+cl <- makeCluster(6)
 registerDoParallel(cl)
 
 # Extract data for each combination  
@@ -218,7 +218,7 @@ for(i in 1:length(vars)){
 
 # transform to wide format
 data_delta <- dcast(df, MRGID + TERRITORY1 + SOVEREIGN1 ~ var, value.var = c("delta"))
-data_per <- dcast(df, MRGID + TERRITORY1 + SOVEREIGN1 ~ var, value.var = "per")
+data_per <- dcast(df, MRGID + TERRITORY1 + SOVEREIGN1 ~ var, value.var = "perlog")
 
 # combine delta with %
 data <- merge(data_delta, data_per, by=c("MRGID"))
