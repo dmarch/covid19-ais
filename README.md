@@ -1,9 +1,15 @@
-# covid19-ais
-Tracking the global reduction of marine traffic during the COVID-19 pandemic
+## Tracking the global reduction of marine traffic during the COVID-19 pandemic
+
+This repository provides the R code that accompanies the article:
+
+March D, Metcalfe K, Tintoré J, Godley BJ. Tracking the global reduction of marine traffic during the COVID-19 pandemic.
 
 
+### Requirements
+* R-studio with R >= 3.6.0
 
-# Structure
+
+### Structure of this repostitory
 
 
 Folder          |  Description    
@@ -16,8 +22,7 @@ data            | folder with input and output data (not included the repository
 
 
 
-
-# Input data repository
+### Input data repository
 
 Input data `data/input` contains all datasets required for the analysis. Because of size and license constrains to redistribute data, I provide here the paths and sources of data
 
@@ -30,3 +35,16 @@ FAO areas         | `data/input/FAO_AREAS/`       | FAO major fishing areas (htt
 Marine ecoregions | `data/input/MEOW/`            | Marine ecoregions of the world (https://www.worldwildlife.org/publications/marine-ecoregions-of-the-world-a-bioregionalization-of-coastal-and-shelf-areas)
 High Seas         | `data/input/marine_regions/Intersect_EEZ_IHO_v4_2020` | Intersection between EEZ and IHO areas (https://www.marineregions.org/)
 Income class      | `data/input/worldbank`        | Income class per country by World Bank (https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups)
+
+
+
+### License
+
+Copyright (c) 2019 David March  
+Licensed under the [MIT license](https://github.com/dmarch/abigoos/blob/master/LICENSE).
+
+
+
+### Acknowledgements
+
+We acknowledge support from the European Union's Horizon 2020 research and innovation programme under the Marie Skłodowska‐Curie grant agreement no 794938. We thank Marine Traffic and Exact Earth for their support with AIS data. We thank all the data providers for making their data available and making this study possible. 
