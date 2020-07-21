@@ -1,5 +1,7 @@
 ## Tracking the global reduction of marine traffic during the COVID-19 pandemic
 
+[![DOI](https://zenodo.org/badge/280381188.svg)](https://zenodo.org/badge/latestdoi/280381188)
+
 This repository provides the R code that accompanies the article:
 
 March D, Metcalfe K, Tintoré J, Godley BJ. Tracking the global reduction of marine traffic during the COVID-19 pandemic.
