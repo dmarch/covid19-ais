@@ -243,7 +243,7 @@ doc=new.word.doc()
 
 # add the report title and an empty line
 add.title(doc, "Supplementary Data 4")
-add.text(doc, "Average change for each vessel category for each FAO area. Estimated changes correspond to the difference between April 2020, when more stringent lockdown measures took place globally, and April 2019, as a reference period. Data ordered by increasing absolute change for `All vessels` category.")
+add.text(doc, "Average change for each vessel category for each FAO area. Estimated changes correspond to the difference between April 2020, when more stringent lockdown measures took place globally, and April 2019, as a reference period. Data ordered by increasing absolute change for `All vessels` category. Relative change estimated using the log percentage change (L%).")
 add.empty.line(doc)
 
 # add table

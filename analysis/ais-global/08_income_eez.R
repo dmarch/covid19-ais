@@ -4,6 +4,8 @@ library(ggplot2)
 library(egg)
 library(cowplot)
 library(ggrepel)
+library(xlsx)
+library(dplyr)
 
 # create output directory
 out_dir <- "results/ais-global/eez/"

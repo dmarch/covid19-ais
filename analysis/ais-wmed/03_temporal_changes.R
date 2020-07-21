@@ -244,7 +244,7 @@ lay <- rbind(c(1,1),
              c(2,2),
              c(2,2))
 
-p <- grid.arrange(p1, p2, layout_matrix = lay, left = textGrob("Daily percentage change in number of vessels", rot = 90, vjust = 1))
+p <- grid.arrange(p1, p2, layout_matrix = lay, left = textGrob("Relative change (%) in number of vessels", rot = 90, vjust = 1))
 
 
 # export multi-panel plot
