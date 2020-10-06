@@ -20,13 +20,12 @@ analysis        | scripts used to analyse the data
 data            | folder to store input and output data (see Data repository)
 results         | figures and files generated during the analysis
 scr             | scripts with custom fuctions that are sourced from different scripts
-data            | folder with input and output data (not included the repository)
 
 
 
-### Input data repository
+### Data repository: input data
 
-Input data `data/input` contains all datasets required for the analysis. Because of size and license constrains to redistribute data, I provide here the paths and sources of data
+Input data `data/input` contains all datasets required for the analysis. Because of size and license constrains to redistribute data, this folder is not included in the repository. I provide here the paths and sources of data.
 
 Dataset (version) |  Path                         | Description    
 ----------------- | ----------------------------- | --------------------- 

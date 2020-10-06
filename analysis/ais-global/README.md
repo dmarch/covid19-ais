@@ -1,4 +1,4 @@
-# Process and analyse terrestrial AIS (T-AIS) from the Western
+# Process and analyse satellite AIS (S-AIS)
 
 
 File               |  Description    
