@@ -4,6 +4,15 @@
 # This script extracts AIS data from SOCIB database. It cannot be
 # reproduced without access to the raw data.
 # The output is stored for further reproducibility of next steps.
+#
+# Note:
+# Adding new dates, requires a previous pre-processing of raw AIS data
+# from 'socib-ais' repo, following this order:
+# 1. "01_check_daily_data.R": inspects raw data 
+# 2. "01b_check_daily_data_L0.R": inspects previous pre-processed data
+# 3. "02_process_raw_mt.R": process either dynamic and static data.
+# 4. "03_process_static_L1.R": process static data to combine daily files into calendar year data
+# 5. "01b_check_daily_data_L0.R": run again to incorporate new data
 #---------------------------------------------------------------------------
 
 
@@ -45,7 +54,7 @@ eez_24nm_sf <- st_read("data/out/ais-wmed/eez_24nm_eu.gpkg") %>%
 
 # Set start and end date of data inspection
 sDate <- as.Date("2016-01-01")
-eDate <- as.Date("2020-06-30") # "2020-06-04"
+eDate <- as.Date("2020-08-30") # "2020-06-04"
 dates <- seq.Date(sDate, eDate, "1 day")
 
 # Check dates with data
