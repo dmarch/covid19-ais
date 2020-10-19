@@ -20,6 +20,8 @@ if (!dir.exists(output_plot)) dir.create(output_plot, recursive = TRUE)
 output_data <- "data/out/stringency"
 if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 
+## set last date to process
+last_date <- "2020-07-31"
 
 
 #--------------------------------------------------------------------------------
@@ -42,8 +44,11 @@ data$Month <- month(data$Date)
 # data$StringencyIndex <- data$Government.Response.Stringency.Index...0.to.100..100...strictest..
 
 
-# Filter data untill 30th June
-data <- filter(data, Date <= as.Date("2020-06-30"))
+# Filter data untill 31st July
+data <- filter(data, Date <= as.Date(last_date))
+
+# Remove sub-regions
+data <- filter(data, RegionName == "")
 
 # Store a version for further reproducibility
 write.csv(data, paste0(output_data, "/stringency.csv"), row.names=FALSE)
@@ -57,7 +62,7 @@ write.csv(data, paste0(output_data, "/stringency.csv"), row.names=FALSE)
 WMedCountries <- c("Spain", "France", "Italy", "China", "India", "United States", "South Korea")
 
 # Plot time series all countries in the same plot
-p <- ggplot(filter(data, CountryName %in% WMedCountries), aes(x = Date, group = CountryName)) +
+p1 <- ggplot(filter(data, CountryName %in% WMedCountries), aes(x = Date, group = CountryName)) +
   geom_line(aes(y = StringencyIndex, color = CountryName), size = 1) +
   geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
   scale_colour_brewer(palette="Set1") +
@@ -68,7 +73,7 @@ p <- ggplot(filter(data, CountryName %in% WMedCountries), aes(x = Date, group = 
   theme(legend.position = c(0.85, 0.2), legend.title = element_blank())
 
 # Faceted by country
-p <- ggplot(filter(data, CountryName %in% WMedCountries), aes(x = Date, group = CountryName)) +
+p2 <- ggplot(filter(data, CountryName %in% WMedCountries), aes(x = Date, group = CountryName)) +
   geom_line(aes(y = StringencyIndex, color = CountryName), size = 1) +
   geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
   scale_colour_brewer(palette="Set2") +
@@ -83,7 +88,7 @@ data_sub <-filter(data, CountryName %in% WMedCountries)
 data_sub$si_group <- cut(data_sub$StringencyIndex, 5)
 data_sub$CountryName <- factor(data_sub$CountryName, levels = c("China", "South Korea", "Italy", "France", "India", "United States", "Spain"))
 data_sub$CountryName <- fct_rev(data_sub$CountryName)
-p<- ggplot(data_sub, aes(Date, CountryName, color = si_group, group=rev(CountryName))) +
+p3 <- ggplot(data_sub, aes(Date, CountryName, color = si_group, group=rev(CountryName))) +
   geom_line(size = 10) +
   scale_color_brewer(palette = "RdYlBu", direction=-1, na.value = "grey70") +
   labs(x=NULL, y=NULL) +
@@ -94,7 +99,7 @@ p<- ggplot(data_sub, aes(Date, CountryName, color = si_group, group=rev(CountryN
 
 # export plot
 out_file <- paste0(output_plot, "/country_timeline.png")
-ggsave(out_file, p, width=13, height=8, units = "cm")
+ggsave(out_file, p3, width=13, height=8, units = "cm")
 
 
 
@@ -111,7 +116,7 @@ length(unique(data$CountryCode)) # 133 countries with EEZ
 # calculate average and SD
 dailyAvgGlobal <- data %>%
   group_by(Date) %>%
-  filter(Date < as.Date("2020-06-30")) %>%
+  filter(Date < as.Date(last_date)) %>%
   summarize(StringencyIndexAvg = mean(StringencyIndex, na.rm=TRUE),
             StringencyIndexSd = sd(StringencyIndex, na.rm=TRUE))
 
@@ -133,14 +138,13 @@ ggsave(out_file, p, width=10, height=8, units = "cm")
 # Calculate average and sd
 april <- data %>%
   filter(Date >= as.Date("2020-04-01") & Date < as.Date("2020-04-30"))
-mean(april$StringencyIndex, na.rm=TRUE)  # 79.54873
-sd(april$StringencyIndex, na.rm=TRUE)  # 15.50716
+mean(april$StringencyIndex, na.rm=TRUE)  # 79.7002
+sd(april$StringencyIndex, na.rm=TRUE)  # 15.34479
 
 
 #--------------------------------------------------------------------------------
 # 2. Plot map
 #--------------------------------------------------------------------------------
-
 
 # Calculate median
 avgGlobal <- data %>%
