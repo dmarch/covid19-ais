@@ -22,7 +22,6 @@ output_data <- "data/out/ais-wmed"
 if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 
 
-# Bounding box of the study area
 # bb: bounding box of the AIS data
 # bb_expanded: bounding box to cover the coastline and calculate the buffer
 bb <- st_as_sfc(st_bbox(c(xmin = -1.60, xmax = 9.93, ymax = 35.56, ymin = 43.45), crs = st_crs(4326)))
