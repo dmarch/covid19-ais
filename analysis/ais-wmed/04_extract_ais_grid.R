@@ -22,6 +22,8 @@ library(lubridate)
 library(stringr)
 library(raster)
 library(sf)
+library(janitor)
+library(pals)
 source("../socib-ais/scr/processing_tools.R")  # sources from external repo
 source("scr/fun_ais.R")
 
@@ -44,16 +46,17 @@ bb_sp <- as(bb, "Spatial")
 
 # get raster at same resolution as S-AIS
 r_area <- raster("data/out/ais-global/areacell.nc")  # see ais-global/01_ocean_area.R
+r_mask <- raster("data/out/ais-global/oceanmask.nc")
 
-r <- raster("data/out/ais-global/oceanmask.nc")
 
-r <- raster(xmn=-180, xmx=180, ymn=-90, ymx=90,
-            crs=CRS("+proj=longlat +datum=WGS84"),
-            resolution=c(0.25,0.25), vals=NULL)
+# r <- raster(xmn=-180, xmx=180, ymn=-90, ymx=90,
+#             crs=CRS("+proj=longlat +datum=WGS84"),
+#             resolution=c(0.25,0.25), vals=NULL)
 
 # crop raster
-r <- crop(r, bb_sp)
-
+r_area <- crop(r_area, bb_sp)
+r <- r_area
+r[] <- 0
 
 #-----------------------------------------------------------------
 # Prepare data to import
@@ -72,6 +75,9 @@ dates <- dates[check_dates(dates, file = calendar_file)] # filter dates by AIS a
 dates_df <- data.frame(date = dates, month = month(dates), ym = floor_date(dates, "month"))
 dates_df <- filter(dates_df, month <= 7)  # filter months of interest
 
+# reformat month
+dates_df$ym <- format(dates_df$ym, "%Y%m%d")
+
 
 #-----------------------------------------------------------------
 # Get number of vessels per day and ship type
@@ -82,15 +88,22 @@ cores <- 12 # detectCores()
 cl <- makeCluster(cores)
 registerDoParallel(cl)
 
+data(countriesHigh, package = "rworldxtra", envir = environment())
 
 unique_months <- unique(dates_df$ym)
 for(j in 1:length(unique_months)){  # 14 months to analyse
+  
+  print(paste("Processing month", j, "from", length(unique_months)))
   
   # select dates for month i
   jmonth <- unique_months[j]
   jdates <- dates_df %>% dplyr::filter(ym == jmonth) %>% dplyr::select(date)
   dates <- jdates$date
 
+  # create output folder for selected month
+  out_dir_month <- paste0(output_data, "/", jmonth, "/")
+  if (!dir.exists(out_dir_month)) dir.create(out_dir_month, recursive = TRUE)
+  
   # process AIS data
   cnt <- rbindlist(foreach(i=1:length(dates), .packages = c("lubridate", "dplyr", "janitor"))  %dopar% {
     
@@ -145,46 +158,63 @@ for(j in 1:length(unique_months)){  # 14 months to analyse
     data
   })
   
-  # rasterize the number of vessels
-  # get cell id for each anchoring event
-  # then get unique combination of mmsi and cell id
+  # get grid cell id for each vessel observation
   cnt$cellID <- cellFromXY(r, cbind(cnt$lon, cnt$lat)) 
   cnt$cellID <- as.character(cnt$cellID)
-  cell_sum <- cnt %>%
-    group_by(cellID) %>%
-    summarize(n = length(unique(mmsi)))
-  cell_sum$cellID <- as.numeric(cell_sum$cellID)
   
-  # rasterize
-  rcount <- r
-  rcount[cell_sum$cellID] <- cell_sum$n
-  writeRaster(ranchor_vessels , filename=paste0(path_out_balearics,"/grid/anchor_bal_vessels.nc"), format="CDF", overwrite=TRUE) 
+  # filter out observations that are outside the grid
+  cnt <- filter(cnt, !is.na(cellID))
   
-  # rasterize by vessel type
-  
-  cell_sum <- cnt %>%
+  # calculate number of unique vessels per ship type per grid cell
+  cell_type <- cnt %>%
     group_by(cellID, type) %>%
     summarize(n = length(unique(mmsi)))
-  cell_sum$cellID <- as.numeric(cell_sum$cellID)
   
+  # calculate number of ALL unique vessels
+  cell_all <- cnt %>%
+    group_by(cellID) %>%
+    summarize(n = length(unique(mmsi))) %>%
+    mutate(type = "COUNT") %>%
+    relocate(type, .after = cellID)
+
+  # combine global summariesand summaries per ship type
+  cell_sum <- bind_rows(cell_all, cell_type)
+  cell_sum$cellID <- as.numeric(cell_sum$cellID)
+
+  # list unique categories  
   types <- unique(cell_sum$type)
   
   for (k in 1:length(types)){
     
-    tdata <- dplyr::filter(cell_sum, type == types[k])
+    ktype <- types[k]
+    tdata <- dplyr::filter(cell_sum, type == ktype)
     
+    # rasterize
+    rcount <- r
+    rcount[tdata$cellID] <- tdata$n
+    
+    # convert to densities
+    rcount[rcount==0] <- NA
+    rdens <- rcount / r_mask
+
+    # export raster
+    writeRaster(rdens, paste0(out_dir_month, sprintf("%s_%s_dens.tif", jmonth, ktype)), overwrite=TRUE)
+
+    # plot density
+    minval <- minValue(rdens)
+    maxval <- maxValue(rdens)
+    pngfile <- paste0(out_dir_month, sprintf("%s_%s_dens.png", jmonth, ktype))
+    png(pngfile, width=3000, height=1750, res=300)
+    plot(rdens, col=rev(brewer.spectral(101)), main = sprintf("Density %s (%s)", jmonth, ktype))
+    plot(countriesHigh, col=NA, border="black", add=TRUE)  # land mask
+    # plotDens(r = rdens, zlim = c(minval, maxval), mollT = FALSE, logT = FALSE,
+    #             col = rev(brewer.spectral(101)), main = sprintf("Density %s (%s)", jmonth, ktype),
+    #             axis_at = c(minval, maxval), axis_labels = c(round(minval,3), round(maxval,3)))
+    dev.off()
   }
-  
-  
-  
 }
-
-
 
 
 ## Stop cluster
 stopCluster(cl)
 
-## write csv
-outfile <- paste0(output_data, "/vessels_day.csv")
-write.csv(cnt, outfile, row.names = FALSE)

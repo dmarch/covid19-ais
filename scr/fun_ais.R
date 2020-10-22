@@ -132,6 +132,43 @@ plotDensMol <- function(r, zlim, logT, mollT, col, main, axis_at, axis_labels, l
 }
 #-----------------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------------
+# plotDens       plot density map in mollweide
+#-----------------------------------------------------------------------------------
+plotDens <- function(r, zlim, logT, mollT, col, main, axis_at, axis_labels, legend_horizontal = TRUE, breaks=NULL){
+  
+  # import landmask
+  data(countriesHigh, package = "rworldxtra", envir = environment())
+
+  # labels for legend
+  zlim_lab <- zlim  
+  
+  # reproject to mollweide
+  if(mollT == TRUE){
+    r <- projectRaster(r, crs = "+proj=moll +ellps=WGS84", method="bilinear")
+    countriesHigh <- spTransform(countriesHigh, CRS("+proj=moll +ellps=WGS84"))
+    box <- bb(xmin = -180, xmax = 180, ymin = -90, ymax = 90, crs="+proj=moll +ellps=WGS84")
+  }
+  
+  # log-transform if required
+  if(logT == TRUE){
+    r = log(r)
+    zlim = log(zlim)
+    axis_at = log(axis_at)
+  }
+  
+  # plot
+  plot(r, maxpixels=1036800, col=col, zlim = zlim, main=main, legend=F, axes=FALSE, box=FALSE, breaks=breaks)  # raster plot
+  plot(countriesHigh, col="grey80", border="grey80", add=TRUE)  # land mask
+  if(mollT == TRUE) plot(box, border="grey60", add=TRUE)  # box
+  plot(r, zlim =  zlim, legend.only=TRUE, horizontal = legend_horizontal, col=col, legend.width=1, legend.shrink=0.4,
+       axis.args=list(at=axis_at, labels=axis_labels, cex.axis=1.2))
+  # legend.args=list(text=expression(Traffic~density~(vessels~km^-2)),
+  #                  side=1, font=2, line=2, cex=1.2))
+}
+#-----------------------------------------------------------------------------------
+
+
 
 #----------------------------------------------------------------------------------------------
 # point_on_land    Check if location overlap with landmask
