@@ -54,7 +54,6 @@ write.csv(ports, paste0(out_dir, "un_ports.csv"), row.names = FALSE)
 #-------------------------------------------------------------------------------
 # Summarize port calls per port and month
 
-
 port_monthly <- data %>%
   group_by(Port.Name, Lon, Lat, CountryISO, ym, Year, month) %>%
   summarise(port_calls = sum(Port.Calls))
@@ -101,6 +100,30 @@ p1 <- ggplot(filter(data_global), aes(x = Date.Entry)) +
   ylab("Port Calls") + xlab("") +
   theme_article() #+
 #theme(legend.position = c(0.85, 0.2), legend.title = element_blank())
+
+
+#-------------------------------------------------------------------------------
+# Weekly variation of overall port calls
+
+data_weekly <- data %>%
+  filter(vessel_type == "Container", Week >= 4) %>%
+  group_by(Week, Year) %>%
+  summarise(port_calls = sum(Port.Calls)) %>%
+  mutate(Year = as.character(Year))
+
+# Plot time series all countries in the same plot
+p1 <- ggplot(filter(data_weekly), aes(x = Week)) +
+  geom_line(aes(y = port_calls, color = Year), size = 0.2) +
+  #geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
+  #scale_colour_brewer(palette="Set1") +
+  scale_color_manual(values=c('#9ecae1', "#3182bd"))+
+  #scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  #ylim(c(0,100))+
+  ylab("Port Calls") + xlab("") +
+  theme_article() #+
+#theme(legend.position = c(0.85, 0.2), legend.title = element_blank())
+
+
 
 
 

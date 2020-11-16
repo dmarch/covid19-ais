@@ -25,6 +25,7 @@ library(lubridate)
 library(stringr)
 library(raster)
 library(sf)
+library(janitor)
 source("../socib-ais/scr/processing_tools.R")  # sources from external repo
 source("scr/fun_ais.R")
 
@@ -54,7 +55,7 @@ eez_24nm_sf <- st_read("data/out/ais-wmed/eez_24nm_eu.gpkg") %>%
 
 # Set start and end date of data inspection
 sDate <- as.Date("2016-01-01")
-eDate <- as.Date("2020-10-31") # "2020-06-04"
+eDate <- as.Date("2020-08-30") # "2020-06-04"
 dates <- seq.Date(sDate, eDate, "1 day")
 
 # Check dates with data
@@ -112,10 +113,8 @@ cnt <- rbindlist(foreach(i=1:length(dates), .packages = c("lubridate", "dplyr", 
   
   # count number of vessel by type
   cnt <- data %>%
-    group_by(type) %>%  # add ISO_SOV1 to split between countries
-    summarize(vessels = length(unique(mmsi)),
-              messages = sum(n)) %>% 
-    adorn_totals("row", name = "All") 
+    group_by(flag) %>%  # add ISO_SOV1 to split between countries
+    summarize(vessels = length(unique(mmsi)))
   
   # Add date
   cnt$date <- dates[i]

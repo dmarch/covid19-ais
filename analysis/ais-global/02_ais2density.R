@@ -27,8 +27,14 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 #-------------------------------
 
 # import ocean mask
-r_area <- raster("data/out/ais-global/oceanmask.nc")
-r_area_cell <- raster("data/out/ais-global/areacell.nc")
+#r_area <- raster("data/out/ais-global/oceanmask.nc")
+r_area <- raster("data/out/ais-global/ocean_area.tif")
+
+# use ocean area as mask
+r_area_grid <- area(r_area)
+r_area <- mask(r_area_grid, r_area)
+  
+#r_area_cell <- raster("data/out/ais-global/areacell.nc")
 
 # select variables to compare
 vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
@@ -55,7 +61,7 @@ for (i in 1:length(dates)){
   ais_sf <- st_read(shp_file)
   
   # filter sAIS to get mask
-  m <- filterSAIS(pol = ais_sf, r_area = r_area)
+  m <- filterSAIS2(pol = ais_sf, r_area = r_area)
   m_moll <- projectRaster(m, res = 27750, crs = "+proj=moll", method="ngb")
   #writeRaster(m, paste0(out_dir, sprintf("%s_mask.tif", idate)), overwrite = TRUE)
   
@@ -68,11 +74,14 @@ for (i in 1:length(dates)){
     
     # convert counts in polygon to density in raster format
     jvar <- vars[j]
-    dens <- countToDensity(pol = ais_sf, r_area = r_area_cell, var = jvar)
+    dens <- countToDensity(pol = ais_sf, r_area = r_area, var = jvar)
     
     # mask with ocean at 0.25 x 0.25
     # we also store the unmasked version for the pressure analysis
     r <- mask(dens, m)
+    
+    # focal
+    #r <- focal(r, w=matrix(1/9,nrow=3,ncol=3), na.rm=TRUE)
     
     # transform to mollweide
     rmoll <- projectRaster(r, res = 27750, crs = "+proj=moll +ellps=WGS84", method="bilinear")
@@ -83,13 +92,9 @@ for (i in 1:length(dates)){
     writeRaster(rmoll, paste0(out_dir_month, sprintf("%s_%s_dens_moll.tif", idate, jvar)), overwrite=TRUE)
     
     # plot density
-    minval <- minValue(rmoll)
-    maxval <- maxValue(rmoll)
     pngfile <- paste0(out_dir_month, sprintf("%s_%s_dens_moll.png", idate, jvar))
     png(pngfile, width=3000, height=1750, res=300)
-    plotDensMol(r = rmoll, zlim = c(minval, maxval), mollT = FALSE, logT = TRUE,
-                col = rev(brewer.spectral(101)), main = sprintf("Density %s (%s)", jvar, idate),
-                axis_at = c(minval, maxval), axis_labels = c(round(minval,3), round(maxval,3)))
+    plotDensMol2(r = rmoll, col = rev(brewer.spectral(101)), main = sprintf("Density %s (%s)", jvar, idate))
     dev.off()
   }
 }

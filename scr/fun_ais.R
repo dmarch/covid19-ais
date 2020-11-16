@@ -3,6 +3,7 @@
 #-----------------------------------------------------------------------------------
 # countToDensity
 # filterSAIS        Filter S-AIS data
+# getClumpInfo      Get information for cell patches (clumps)
 # plotDensMol       plot density map in mollweide
 # point_on_land     Check if location overlap with landmask
 # trans2            Transform and normalize two rasters
@@ -91,6 +92,173 @@ filterSAIS <- function(pol = ais_sf, r_area = r_area){
 #-----------------------------------------------------------------------------------
 
 
+#-----------------------------------------------------------------------------------
+# filterSAIS2          Filter S-AIS data
+#-----------------------------------------------------------------------------------
+filterSAIS2 <- function(pol = ais_sf, r_area = r_area){#, dist2coast = dist2coast){
+  # For each density map, we detected the patches of connected cells.
+  # For each cell, we consider the closest 8 cells as adjacent (Queen's case).
+  # For each clump, we then calculated the ocean area, the closest distance to the coastline,
+  # the SD for the average speed and SD of the total number of vessels.
+  
+  require(dplyr)
+  
+  # filter out cells with outlier speeds
+  # exploration of data show that cells are found in isolated cells, borders, or anomalies
+  rsog_mean <- fasterize(pol, r_area, field = "SOG_mean")
+  rsog <- rsog_mean
+  q99 <- quantile(rsog, 0.99)
+  rsog[rsog >= q99] <- NA
+  rsog[rsog < q99] <- 1
+  
+  # combine with ocean mask
+  ocean_mask <- r_area/r_area
+  mask1 <- rsog * ocean_mask
+  
+  # detect clumps of connected cells
+  # after visual inspection, we select the two largers clumps
+  # the rest are small clump on land, isolated cells at sea
+  rclump <- clump(mask1, directions=8) 
+  f <- data.frame(freq(rclump))
+  f <- f[-nrow(f),]  # remove last row with NA values
+  
+  # calculate SD for mean speed
+  clump_sd_speed <- zonal(rsog_mean, rclump, fun="sd") %>%
+    data.frame() %>%
+    dplyr::select(zone, sd) %>%
+    dplyr::rename(value = zone, sd_speed = sd)
+  
+  # calculate SD for number of vessels
+  rcount <- fasterize(pol, r_area, field = "COUNT")
+  clump_sd_count <- zonal(rcount, rclump, fun="sd") %>%
+    data.frame() %>%
+    dplyr::select(zone, sd) %>%
+    dplyr::rename(value = zone, sd_count = sd)
+  
+  # calculate total number of vessels
+  clump_sum_count <- zonal(rcount, rclump, fun="sum") %>%
+    data.frame() %>%
+    dplyr::select(zone, sum) %>%
+    dplyr::rename(value = zone, sum_count = sum)
+  
+  # calculate ocean area
+  clump_ocean_area <- zonal(r_area, rclump, fun="sum") %>%
+    data.frame() %>%
+    dplyr::select(zone, sum) %>%
+    dplyr::rename(value = zone, ocean_area = sum)
+  
+  # calculate grid area
+  grid_area <- area(r_area)
+  clump_grid_area <- zonal(grid_area, rclump, fun="sum") %>%
+    data.frame() %>%
+    dplyr::select(zone, sum) %>%
+    dplyr::rename(value = zone, grid_area = sum)
+  
+  # combine all variables
+  clumps <- f %>%
+    left_join(clump_sd_speed, by="value") %>%
+    left_join(clump_sd_count, by="value") %>%
+    left_join(clump_sum_count, by="value") %>%
+    left_join(clump_ocean_area, by="value") %>%
+    left_join(clump_grid_area, by="value")
+  
+  # filter data
+  clump_data <- filter(clumps,
+                       grid_area > 769,
+                       sd_speed > 0,
+                       sd_count > 0)
+  
+  # set all clump ids into 1 to create the mask
+  rclump[!rclump %in% clump_data$value] <- NA  # set remaining clumps to 1
+  rclump[rclump %in% clump_data$value] <- 1  # set remaining clumps to 1
+  return(rclump)
+}
+#-----------------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------------
+# getClumpInfo         Get information for cell patches (clumps)
+#-----------------------------------------------------------------------------------
+getClumpInfo <- function(pol = ais_sf, r_area = r_area, dist2coast = dist2coast){
+  # For each density map, we detected the patches of connected cells.
+  # For each cell, we consider the closest 8 cells as adjacent (Queen's case).
+  # For each clump, we then calculated the ocean area, the closest distance to the coastline,
+  # the SD for the average speed and SD of the total number of vessels.
+  
+  require(dplyr)
+  
+  # filter out cells with outlier speeds
+  # exploration of data show that cells are found in isolated cells, borders, or anomalies
+  rsog_mean <- fasterize(pol, r_area, field = "SOG_mean")
+  rsog <- rsog_mean
+  q99 <- quantile(rsog, 0.99)
+  rsog[rsog >= q99] <- NA
+  rsog[rsog < q99] <- 1
+  
+  # combine with ocean mask
+  ocean_mask <- r_area/r_area
+  mask1 <- rsog * ocean_mask
+  
+  # detect clumps of connected cells
+  # after visual inspection, we select the two largers clumps
+  # the rest are small clump on land, isolated cells at sea
+  rclump <- clump(mask1, directions=8) 
+  f <- data.frame(freq(rclump))
+  f <- f[-nrow(f),]  # remove last row with NA values
+  
+  # calculate SD for mean speed
+  clump_sd_speed <- zonal(rsog_mean, rclump, fun="sd") %>%
+    data.frame() %>%
+    dplyr::select(zone, sd) %>%
+    dplyr::rename(value = zone, sd_speed = sd)
+  
+  # calculate SD for number of vessels
+  rcount <- fasterize(pol, r_area, field = "COUNT")
+  clump_sd_count <- zonal(rcount, rclump, fun="sd") %>%
+    data.frame() %>%
+    dplyr::select(zone, sd) %>%
+    dplyr::rename(value = zone, sd_count = sd)
+  
+  # calculate total number of vessels
+  clump_sum_count <- zonal(rcount, rclump, fun="sum") %>%
+    data.frame() %>%
+    dplyr::select(zone, sum) %>%
+    dplyr::rename(value = zone, sum_count = sum)
+  
+  # calculate ocean area
+  clump_ocean_area <- zonal(r_area, rclump, fun="sum") %>%
+    data.frame() %>%
+    dplyr::select(zone, sum) %>%
+    dplyr::rename(value = zone, ocean_area = sum)
+  
+  # calculate grid area
+  grid_area <- area(r_area)
+  clump_grid_area <- zonal(grid_area, rclump, fun="sum") %>%
+    data.frame() %>%
+    dplyr::select(zone, sum) %>%
+    dplyr::rename(value = zone, grid_area = sum)
+  
+  # calculate closest distance to the coastline
+  clump_dist2coast <- zonal(dist2coast, rclump, fun="min") %>%
+    data.frame() %>%
+    dplyr::select(zone, min) %>%
+    dplyr::rename(value = zone, dist2coast = min)
+  
+  # combine all variables
+  clumps <- f %>%
+    left_join(clump_sd_speed, by="value") %>%
+    left_join(clump_sd_count, by="value") %>%
+    left_join(clump_sum_count, by="value") %>%
+    left_join(clump_ocean_area, by="value") %>%
+    left_join(clump_grid_area, by="value") %>%
+    left_join(clump_dist2coast, by="value")
+  
+  return(clumps)
+}
+#-----------------------------------------------------------------------------------
+
+
 
 #-----------------------------------------------------------------------------------
 # plotDensMol       plot density map in mollweide
@@ -131,6 +299,36 @@ plotDensMol <- function(r, zlim, logT, mollT, col, main, axis_at, axis_labels, l
   #                  side=1, font=2, line=2, cex=1.2))
 }
 #-----------------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------------
+# plotDensMol2       plot density map in mollweide
+#-----------------------------------------------------------------------------------
+plotDensMol2 <- function(r, col, main, legend_horizontal = TRUE){
+  
+  # import landmask
+  data(countriesHigh, package = "rworldxtra", envir = environment())
+  countriesHigh <- spTransform(countriesHigh, CRS("+proj=moll +ellps=WGS84"))
+  box <- bb(xmin = -180, xmax = 180, ymin = -90, ymax = 90, crs="+proj=moll +ellps=WGS84")
+  
+  # log-transform
+  r = log10(r)
+  zlim = c(minValue(r), maxValue(r))
+  axis_at = seq(floor(zlim[1]), ceiling(zlim[2]))
+  axis_labels = paste(10, '^', axis_at, sep='') 
+  
+  # plot
+  plot(r, maxpixels=1036800, col=col, zlim = zlim, main=main, legend=F, axes=FALSE, box=FALSE)  # raster plot
+  plot(countriesHigh, col="grey80", border="grey80", add=TRUE)  # land mask
+  plot(box, border="grey60", add=TRUE)  # box
+  plot(r, zlim =  zlim, legend.only=TRUE, horizontal = legend_horizontal, col=col, legend.width=1, legend.shrink=0.4,
+       axis.args=list(at=axis_at, labels=parse(text=axis_labels), cex.axis=1.2))
+  # legend.args=list(text=expression(Traffic~density~(vessels~km^-2)),
+  #                  side=1, font=2, line=2, cex=1.2))
+}
+#-----------------------------------------------------------------------------------
+
 
 #-----------------------------------------------------------------------------------
 # plotDens       plot density map in mollweide

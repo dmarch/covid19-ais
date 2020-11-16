@@ -27,34 +27,27 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
 ### Option 1: select months to process (2020 vs 2019)
 dates_post <- c(
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 dates_pre <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 ### Option 2: select months to process (2020 vs Jan 2020)
 dates_post <- c(
-  seq.Date(as.Date("2020-02-01"), as.Date("2020-07-01"), by = "month")
+  seq.Date(as.Date("2020-02-01"), as.Date("2020-06-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 dates_pre <- rep(as.Date("2020-01-01"), length(dates_post)) %>% format("%Y%m%d")
 
 ### Option 3: select months to process (2019 vs Jan 2019)
 dates_post <- c(
-  seq.Date(as.Date("2019-02-01"), as.Date("2019-07-01"), by = "month")
+  seq.Date(as.Date("2019-02-01"), as.Date("2019-06-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 dates_pre <- rep(as.Date("2019-01-01"), length(dates_post)) %>% format("%Y%m%d")
 
-### Check anomalies in July
-# change year to compare results between 2019 and 2020
-dates_post <- c(
-  as.Date("2020-07-01")
-) %>% format("%Y%m%d")
-
-dates_pre <- as.Date("2020-06-01") %>% format("%Y%m%d")
 
 
 #-------------------------------
@@ -76,9 +69,10 @@ for (i in 1:length(dates_post)){
   for (j in 1:length(vars)){
   
     # select files
+    # use projection in original lon/lat to make the subtraction
     jvar <- vars[j]
-    tif1 <- list.files(input_dir, full.names = TRUE, recursive = TRUE, pattern = sprintf("%s_%s_dens_moll.tif$", idate_pre, jvar))
-    tif2 <- list.files(input_dir, full.names = TRUE, recursive = TRUE, pattern = sprintf("%s_%s_dens_moll.tif$", idate_post, jvar))
+    tif1 <- list.files(input_dir, full.names = TRUE, recursive = TRUE, pattern = sprintf("%s_%s_dens.tif$", idate_pre, jvar))
+    tif2 <- list.files(input_dir, full.names = TRUE, recursive = TRUE, pattern = sprintf("%s_%s_dens.tif$", idate_post, jvar))
     
     # import raster
     r1 <- raster(tif1)
@@ -95,10 +89,10 @@ for (i in 1:length(dates_post)){
     r2z <- sum(r2, m, na.rm=TRUE)
     
     ## calculate coefficient of variation (CV)
-    s <- stack(r1z, r2z)
-    u <- mean(s, na.rm=TRUE)
-    s <- calc(s, fun=sd, na.rm=TRUE)
-    cv <- s/u
+    #s <- stack(r1z, r2z)
+    #u <- mean(s, na.rm=TRUE)
+    #s <- calc(s, fun=sd, na.rm=TRUE)
+    #cv <- s/u
     
     # calculate delta
     delta <- sum(r2z, r1z*(-1), na.rm=TRUE)
@@ -108,9 +102,13 @@ for (i in 1:length(dates_post)){
     per <- (delta / r1z) * 100
   
     # export raster
-    writeRaster(cv, paste0(out_dir_month, sprintf("%s_%s_%s_cv_mol.tif", jvar, idate_post, idate_pre)), overwrite=TRUE)
-    writeRaster(delta, paste0(out_dir_month, sprintf("%s_%s_%s_delta_mol.tif", jvar, idate_post, idate_pre)), overwrite=TRUE)
-    writeRaster(per, paste0(out_dir_month, sprintf("%s_%s_%s_per_mol.tif", jvar, idate_post, idate_pre)), overwrite=TRUE)  
+    #writeRaster(cv, paste0(out_dir_month, sprintf("%s_%s_%s_cv_mol.tif", jvar, idate_post, idate_pre)), overwrite=TRUE)
+    writeRaster(delta, paste0(out_dir_month, sprintf("%s_%s_%s_delta.tif", jvar, idate_post, idate_pre)), overwrite=TRUE)
+    writeRaster(per, paste0(out_dir_month, sprintf("%s_%s_%s_per.tif", jvar, idate_post, idate_pre)), overwrite=TRUE)  
+    
+    # transform into Mollweide
+    delta_mol <- projectRaster(delta, res = 27750, crs = "+proj=moll", method="bilinear")
+    writeRaster(delta_mol, paste0(out_dir_month, sprintf("%s_%s_%s_delta_mol.tif", jvar, idate_post, idate_pre)), overwrite=TRUE)
   }
 }
 
@@ -118,45 +116,45 @@ for (i in 1:length(dates_post)){
 # 2. Calculate changes (WGS84)
 #-------------------------------
 
-for (j in 1:length(vars)){
-  
-  # select files
-  jvar <- vars[j]
-  tif1 <- list.files(input_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens.tif$", dates[1], jvar))
-  tif2 <- list.files(input_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens.tif$", dates[2], jvar))
-  
-  # import raster
-  r1 <- raster(tif1)
-  r2 <- raster(tif2)
-
-  # create common mask between both rasters
-  # identifies cells with presence of route density in any of the two periods
-  m <- sum(r1, r2, na.rm=TRUE)
-  m[m==0] <- NA
-  m[m>0] <- 0
-
-  # add zero to density maps
-  r1z <- sum(r1, m, na.rm=TRUE)
-  r2z <- sum(r2, m, na.rm=TRUE)
-  
-  ## calculate coefficient of variation (CV)
-  s <- stack(r1z, r2z)
-  u <- mean(s, na.rm=TRUE)
-  s <- calc(s, fun=sd, na.rm=TRUE)
-  cv <- s/u
-  
-  # calculate delta
-  delta <- sum(r2z, r1z*(-1), na.rm=TRUE)
-  delta <- mask(delta, m)
-  
-  # percentage change
-  per <- (delta / r1z) * 100
-
-  # export raster
-  writeRaster(cv, paste0(out_dir, sprintf("%s_cv.tif", jvar)), overwrite=TRUE)
-  writeRaster(delta, paste0(out_dir, sprintf("%s_delta.tif", jvar)), overwrite=TRUE)
-  writeRaster(per, paste0(out_dir, sprintf("%s_per.tif", jvar)), overwrite=TRUE)  
-}
+#for (j in 1:length(vars)){
+  # 
+  # # select files
+  # jvar <- vars[j]
+  # tif1 <- list.files(input_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens.tif$", dates[1], jvar))
+  # tif2 <- list.files(input_dir, full.names = TRUE, pattern = sprintf("%s_%s_dens.tif$", dates[2], jvar))
+  # 
+  # # import raster
+  # r1 <- raster(tif1)
+  # r2 <- raster(tif2)
+  # 
+  # # create common mask between both rasters
+  # # identifies cells with presence of route density in any of the two periods
+  # m <- sum(r1, r2, na.rm=TRUE)
+  # m[m==0] <- NA
+  # m[m>0] <- 0
+  # 
+  # # add zero to density maps
+  # r1z <- sum(r1, m, na.rm=TRUE)
+  # r2z <- sum(r2, m, na.rm=TRUE)
+  # 
+  # ## calculate coefficient of variation (CV)
+  # s <- stack(r1z, r2z)
+  # u <- mean(s, na.rm=TRUE)
+  # s <- calc(s, fun=sd, na.rm=TRUE)
+  # cv <- s/u
+  # 
+  # # calculate delta
+  # delta <- sum(r2z, r1z*(-1), na.rm=TRUE)
+  # delta <- mask(delta, m)
+  # 
+  # # percentage change
+  # per <- (delta / r1z) * 100
+  # 
+  # # export raster
+  # writeRaster(cv, paste0(out_dir, sprintf("%s_cv.tif", jvar)), overwrite=TRUE)
+  # writeRaster(delta, paste0(out_dir, sprintf("%s_delta.tif", jvar)), overwrite=TRUE)
+  # writeRaster(per, paste0(out_dir, sprintf("%s_per.tif", jvar)), overwrite=TRUE)  
+#}
 
 
 #-------------------------------

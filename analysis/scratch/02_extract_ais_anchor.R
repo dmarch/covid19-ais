@@ -25,6 +25,7 @@ library(lubridate)
 library(stringr)
 library(raster)
 library(sf)
+library(janitor)
 source("../socib-ais/scr/processing_tools.R")  # sources from external repo
 source("scr/fun_ais.R")
 
@@ -54,7 +55,7 @@ eez_24nm_sf <- st_read("data/out/ais-wmed/eez_24nm_eu.gpkg") %>%
 
 # Set start and end date of data inspection
 sDate <- as.Date("2016-01-01")
-eDate <- as.Date("2020-10-31") # "2020-06-04"
+eDate <- as.Date("2020-08-30") # "2020-06-04"
 dates <- seq.Date(sDate, eDate, "1 day")
 
 # Check dates with data
@@ -83,8 +84,8 @@ cnt <- rbindlist(foreach(i=1:length(dates), .packages = c("lubridate", "dplyr", 
   # (i.e. keep MMSI codes with first digits between 2 and 7)
   data <- filter(data, mmsi >= 200000000, mmsi < 800000000)
   
-  # exclude anchored or moored vessels
-  data <- filter(data, !status %in% c(1,5), speed >  1.852)
+  # select at anchored
+  data <- filter(data, status %in% c(1,5), speed <  1.852)
   
   # exclude some types
   exclude_type_summary <- c("", "NULL", "Wing in Grnd")
@@ -127,5 +128,5 @@ cnt <- rbindlist(foreach(i=1:length(dates), .packages = c("lubridate", "dplyr", 
 stopCluster(cl)
 
 ## write csv
-outfile <- paste0(output_data, "/vessels_day.csv")
+outfile <- paste0(output_data, "/vessels_day_anchor.csv")
 write.csv(cnt, outfile, row.names = FALSE)
