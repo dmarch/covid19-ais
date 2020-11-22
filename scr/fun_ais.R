@@ -4,6 +4,7 @@
 # countToDensity
 # filterSAIS        Filter S-AIS data
 # getClumpInfo      Get information for cell patches (clumps)
+# plotDelta       plot delta map in mollweide
 # plotDensMol       plot density map in mollweide
 # point_on_land     Check if location overlap with landmask
 # trans2            Transform and normalize two rasters
@@ -258,6 +259,61 @@ getClumpInfo <- function(pol = ais_sf, r_area = r_area, dist2coast = dist2coast)
 }
 #-----------------------------------------------------------------------------------
 
+
+
+#-----------------------------------------------------------------------------------
+# plotDelta       plot delta map in mollweide
+#-----------------------------------------------------------------------------------
+plotDelta <- function(delta, main = sprintf("Accumulated Delta Jan-Jun 2020 (%s)", jvar)){
+  
+  # get min and max values
+  mindelta <- minValue(delta)
+  maxdelta <- maxValue(delta)
+  
+  # get 99th percentiles
+  qmin <- quantile(delta, c(0.01))
+  qmax <- quantile(delta, c(0.99))
+  #qmin <- -0.05
+  #qmax <- 0.05
+  
+  # define regular interval
+  m <- max(abs(qmin), qmax)
+  qmax <- m
+  qmin <- m*(-1)
+  delta[delta>qmax]<-qmax
+  delta[delta<qmin]<-qmin
+  
+  # define regular interval
+  intervals <- m/50
+  
+  # get breaks
+  # we consider the case where delta values may result in positive values
+  # (e.g. 2020-01)
+  if (qmin >= 0) breaks <- seq(qmin, qmax, by = intervals)
+  if (qmin < 0){
+    low_breaks <- c(seq(qmin-intervals, 0-intervals, by=intervals))
+    high_breaks <- c(seq(0, qmax+intervals, by=intervals))
+    breaks <- c(low_breaks, high_breaks)
+  }
+  
+  # diverging assymetric color ramp
+  high <- brewer.blues(4)
+  low <-  rev(brewer.reds(4))
+  if (qmin >= 0) cols <- high
+  if (qmin < 0){
+    low_cols <- colorRampPalette(low)(length(low_breaks)-1)
+    high_cols <- colorRampPalette(high)(length(high_breaks)-1)
+    cols <- c(low_cols,"#f7f7f7","#f7f7f7", high_cols)
+  }
+  
+  # figure plot
+  plotDensMol(r = delta, zlim = c(qmin, qmax), mollT = FALSE, logT = FALSE, breaks=breaks,
+              col = cols, main = main,
+              axis_at = c(qmin, 0,qmax),
+              axis_labels = c(paste("<",round(qmin,2)), 0, paste(">",round(qmax,2))),
+              legend_horizontal=TRUE)
+}
+#-----------------------------------------------------------------------------------
 
 
 #-----------------------------------------------------------------------------------

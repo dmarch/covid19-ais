@@ -93,12 +93,13 @@ data$var <- factor(data$var, levels=c("COUNT", "CARGO", "TANKER", "PASSENGER", "
 
 
 ## Plot data
-p <- ggplot(filter(data, var == "COUNT"), aes(x = month)) +
+p1 <- ggplot(data,  aes(x = month)) + #filter(data, var == "COUNT")
   geom_line(aes(y = occ_high_km2, color = year), size = 1) +
   scale_color_manual(values=c('#9ecae1', "#3182bd"))+
   #scale_x_date(date_breaks = "2 month", date_labels = "%b") +
+  scale_x_continuous(breaks = 1:6) +
   ylab("") + xlab("") +
-  #facet_wrap(var ~ ., ncol = 2, scales = "free") + # , 
+  facet_wrap(var ~ ., ncol = 6)+#, scales = "free") + # , 
   theme_article() +
   theme(legend.position = "none") +
   guides(fill = FALSE)
@@ -124,7 +125,7 @@ change <- dataw %>%
 
 p2 <- ggplot(change, mapping=aes(x = month, y = per, fill = change_positive)) +
   geom_col(alpha=1, width=0.8) +
-  ylab("Relative change (L%) in occupancy") + xlab("Month") +
+  #ylab("Relative change (L%) in occupancy") + xlab("Month") +
   #scale_x_continuous( breaks = c(1,3,5), labels = month.abb[c(1, 3,5)]) +  # , labels = month.abb[1:6]
   scale_x_continuous(breaks = 1:6) +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
@@ -150,12 +151,28 @@ change <- dataw %>%
   )
 
 
-p2 <- ggplot(change, mapping=aes(x = month, y = per, fill = change_positive)) +
+p3 <- ggplot(change, mapping=aes(x = month, y = per, fill = change_positive)) +
   geom_col(alpha=1, width=0.8) +
-  ylab("Relative change (L%) in occupancy") + xlab("Month") +
+  #ylab("Relative change (L%) in occupancy") + xlab("Month") +
   #scale_x_continuous( breaks = c(1,3,5), labels = month.abb[c(1, 3,5)]) +  # , labels = month.abb[1:6]
   scale_x_continuous(breaks = 1:6) +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
   facet_wrap(var ~ ., ncol = 6) +
   theme_article() +
   guides(fill = FALSE)
+
+
+
+
+# define layout
+lay <- rbind(c(1),
+             c(2),
+             c(3))
+
+# plot
+p <- grid.arrange(p1, p2, p3, layout_matrix = lay)
+
+
+# export multi-panel plot
+out_file <- paste0(output_dir, "occupancy_global_ais.png")
+ggsave(out_file, p, width=25, height=15, units = "cm")

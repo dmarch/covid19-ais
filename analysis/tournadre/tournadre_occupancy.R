@@ -8,7 +8,8 @@ library(raster)
 library(ncdf4)
 library(RColorBrewer)
 source("https://raw.githubusercontent.com/dmarch/abigoos/master/R/utils.R")
-
+source("scr/fun_common.R")  # bb()
+source("scr/fun_ais.R")
 
 
 
@@ -20,10 +21,14 @@ s <- stack(gridded_nc, varname="nships_smoothed") #nships_smoothed
 # pre-process data
 pre <- raster::rotate(flip(flip(t((s)), direction = 'y'), direction = 'x'))
 pre[pre==0] <- NA 
+crs(pre) <- "+proj=longlat +datum=WGS84"  # set projection
+
+# calculate density data
+r_area <- area(pre)
+dens <- pre/r_area
 
 # transform to Mollweide
-crs(pre) <- "+proj=longlat +datum=WGS84"  # set projection
-pre_mol <- projectRaster(pre, res = 27750, crs = "+proj=moll +ellps=WGS84", method="ngb")  # transform to mollweide
+pre_mol <- projectRaster(dens, res = 27750, crs = "+proj=moll +ellps=WGS84", method="ngb")  # transform to mollweide
 
 # convert names to year (equal to days since 1992)
 names(pre_mol) <- round(as.numeric(sub("X", "", names(s)))/365.2422)
@@ -57,6 +62,20 @@ data <- data.table::rbindlist(data_list)
 r2019 <- pre_mol[[28]]
 writeRaster(r2019, "data/input/tournadre/density_2019.tif", overwrite=TRUE)
 
+
+# plot coefficient of variation
+minval <- minValue(r2019)
+maxval <- maxValue(r2019)
+pngfile <- "data/input/tournadre/density_2019.png"
+png(pngfile, width=3000, height=1750, res=300)
+plotDensMol(r = r2019, zlim = c(minval, maxval), mollT = FALSE, logT = FALSE,
+            col = rev(brewer.spectral(101)), main = "Tournadre 2019",
+            axis_at = c(minval, maxval), axis_labels = c(round(minval,3), round(maxval,3)))
+dev.off()
+
+
+
+
 plot(data$year, data$occ_km2)
 
 
@@ -75,16 +94,16 @@ library(tsbox)
 
 
 # this function plots a forcast evaluation
-forecast_eval = function(forecast, model_name = "", eval_set = test){
-  acc = accuracy(forecast, eval_set)
-  acc = round(acc[6], 2) 
-  model_name = model_name
-  forecast %>% 
-    autoplot() + 
-    autolayer(test, series = "Test set")+
-    theme_classic()+
-    labs(title = paste(model_name, " model of by ", acc, " on average across test set", sep = ""))
-}
+# forecast_eval = function(forecast, model_name = "", eval_set = test){
+#   acc = accuracy(forecast, eval_set)
+#   acc = round(acc[6], 2) 
+#   model_name = model_name
+#   forecast %>% 
+#     autoplot() + 
+#     autolayer(test, series = "Test set")+
+#     theme_classic()+
+#     labs(title = paste(model_name, " model of by ", acc, " on average across test set", sep = ""))
+# }
 
 
 
