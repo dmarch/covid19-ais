@@ -21,7 +21,7 @@ output_data <- "data/out/stringency"
 if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 
 ## set last date to process
-last_date <- "2020-07-31"
+last_date <- "2020-06-30"
 
 
 #--------------------------------------------------------------------------------
@@ -97,15 +97,15 @@ p3 <- ggplot(filter(data, CountryName %in% WMedCountries), aes(x = Date, group =
 
 # Barplot
 data_sub <-filter(data, CountryName %in% WMedCountries)
-data_sub$si_group <- cut(data_sub$StringencyIndex, 5)
+data_sub$si_group <- cut(data_sub$StringencyIndex, 5) # 5
 data_sub$CountryName <- factor(data_sub$CountryName, levels = c("China", "South Korea", "Italy", "France", "India", "United States", "Spain"))
 data_sub$CountryName <- fct_rev(data_sub$CountryName)
 p4 <- ggplot(data_sub, aes(Date, CountryName, color = si_group, group=rev(CountryName))) +
+  geom_line(size = 10.5, color="grey20") +
   geom_line(size = 10) +
-  scale_color_brewer(palette = "RdYlBu", direction=-1, na.value = "grey70") +
+  scale_color_brewer(palette = "YlGnBu", direction=1, na.value = "grey70") + #brewer.ylgnbu(10). RdYlBu
   labs(x=NULL, y=NULL) +
-  #geom_vline(xintercept = seq.Date(as.Date("2020-01-01"), as.Date("2020-06-30"), "day"), color = "white", lwd=0.01) + 
-  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0,0)) +
   theme_article() +
   theme(legend.position = "none")
 
@@ -163,7 +163,7 @@ p5 <- ggplot(data_sub, aes(x = Date, y = CountryName, fill = si_group))+
   #define new breaks on x-axis
   scale_x_date(expand=c(0,0), date_breaks = "1 month", date_labels = "%b") +
   #colors
-  scale_fill_manual(values=brewer.ylgnbu(10), na.value="grey90")+
+  scale_fill_manual(values=brewer.ylgnbu(5), na.value="grey90")+
   #set a base size for all fonts
   theme_grey(base_size=8)+
   # labels and title
@@ -176,6 +176,8 @@ p5 <- ggplot(data_sub, aes(x = Date, y = CountryName, fill = si_group))+
                              label.position = "bottom",
                              keywidth = 3,
                              nrow = 1)) +
+  coord_fixed(ratio = 20) +
+  #coord_equal() +
   theme(legend.position="bottom",legend.direction="horizontal",
         legend.spacing.x = unit(0, 'cm'),
       legend.title=element_text(colour=textcol),
@@ -216,11 +218,11 @@ dailyAvgGlobal <- data %>%
 
 # plot
 p <- ggplot(dailyAvgGlobal, aes(x = Date)) +
-  geom_rect(aes(xmin=as.Date("2020-04-01"), xmax=as.Date("2020-04-30"), ymin=-Inf, ymax=Inf), fill="grey90", alpha=0.5) +
+  #geom_rect(aes(xmin=as.Date("2020-04-01"), xmax=as.Date("2020-04-30"), ymin=-Inf, ymax=Inf), fill="grey90", alpha=0.5) +
   geom_ribbon(aes(ymin = StringencyIndexAvg - StringencyIndexSd, ymax = StringencyIndexAvg + StringencyIndexSd), alpha=.2, linetype=0, fill = "steelblue") +
   geom_line(aes(y = StringencyIndexAvg), size = 1, color="steelblue") +  # 'steelblue', "#00BFC4"
   geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0,0)) +
   ylab("Stringency Index") + xlab("") +
   theme_article() +
   guides(fill = FALSE)
@@ -261,7 +263,7 @@ map_data <- map_data %>% filter(name != "Antarctica")
 p1 <- tm_shape(map_data) +
   tm_polygons("StringencyIndexAvg",
               title=("Stringency Index \nMonthly median (April 2020)"),
-              palette = "-RdYlBu", 
+              palette = "YlGnBu", #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
               border.col = "grey60", 
               border.alpha = 0.3) +
   tm_layout(legend.title.size=1)
@@ -284,13 +286,13 @@ data("World")
 #data(countriesHigh, package = "rworldxtra", envir = environment())
 #World <- st_as_sf(countriesHigh)
 
-for(i in 1:7){
+for(i in 1:6){
   
   # Calculate median
   avgGlobal <- data %>%
     group_by(CountryName, CountryCode) %>%
     filter(Month == i) %>%
-    summarize(StringencyIndexAvg = median(StringencyIndex),
+    summarize(StringencyIndexAvg = mean(StringencyIndex),
               StringencyIndexSd = sd(StringencyIndex),
               StringencyIndexMin = min(StringencyIndex),
               StringencyIndexMax = max(StringencyIndex))
@@ -306,23 +308,42 @@ for(i in 1:7){
     tm_shape(map_data) +
     tm_polygons("StringencyIndexAvg",
                 title=(paste0("Stringency Index \nMonthly median (",month.abb[i], " 2020)")),
-                palette = "-RdYlBu",
-                breaks = seq(0,100,10),
+                palette = "YlGnBu", # brewer.ylgnbu(10)
+                breaks = seq(0,100,20),
                 border.col = "grey10", 
                 border.alpha = 0.3,
                 legend.show = TRUE,
                 legend.is.portrait = F) +
     tm_layout(title = paste(month.abb[i], 2020), title.size = 2, title.position = c("center","bottom"),
               frame = F,
+              legend.show=FALSE,
               legend.outside = TRUE, legend.outside.position = "bottom", legend.title.size=1)
 
   
   # export plot
-  out_file <- paste0(output_plot, paste0("/", month.abb[i], "_global_med.png"))
+  out_file <- paste0(output_plot, paste0("/", month.abb[i], "_global_avg.png"))
   tmap_save(tm = p1, filename = out_file, width=22, height=10, units = "cm")
 }
 
 
+# plot with lengend
+p1 <- tm_shape(box) +
+  tm_borders()+
+  tm_shape(map_data) +
+  tm_polygons("StringencyIndexAvg",
+              title=(paste0("Stringency Index (Monthly mean)")),
+              palette = "YlGnBu", # brewer.ylgnbu(10)
+              breaks = seq(0,100,20),
+              border.col = "grey10", 
+              border.alpha = 0.3,
+              legend.show = TRUE,
+              legend.is.portrait = F) +
+  tm_layout(#title = paste(month.abb[i], 2020), title.size = 2, title.position = c("center","bottom"),
+            frame = F,
+            legend.show=TRUE,
+            legend.outside = TRUE, legend.outside.position = "bottom",
+            legend.title.size=1, legend.text.size = 1)
 
-
-
+# export plot
+out_file <- paste0(output_plot, paste0("/", month.abb[i], "_global_avg_legend.png"))
+tmap_save(tm = p1, filename = out_file, width=22, height=10, units = "cm")

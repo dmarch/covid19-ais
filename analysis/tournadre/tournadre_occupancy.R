@@ -24,7 +24,7 @@ pre[pre==0] <- NA
 crs(pre) <- "+proj=longlat +datum=WGS84"  # set projection
 
 # calculate density data
-r_area <- area(pre)
+r_area <- raster::area(pre)
 dens <- pre/r_area
 
 # transform to Mollweide
@@ -34,7 +34,25 @@ pre_mol <- projectRaster(dens, res = 27750, crs = "+proj=moll +ellps=WGS84", met
 names(pre_mol) <- round(as.numeric(sub("X", "", names(s)))/365.2422)
 
 
+#---------------------------------------------------------------------
+# Mann-Kendall trend
+#---------------------------------------------------------------------
+require(raster)
+require(Kendall)
+library(devtools)
+source_gist("https://gist.github.com/hakimabdi/8ca1d2783b0ab8aec5cac993573b08ee")
+
+# smooth
+pre_mol_s <- smooth.time.series(pre_mol, f = 0.8, smooth.data = FALSE)
+
+trend <- MKraster(subset(pre_mol, 10:28), type = "both")
+plot(trend)
+
+
+
+#---------------------------------------------------------------------
 # calculate occupancy for each year
+#---------------------------------------------------------------------
 data_list <- list()
 for(i in 1:nlayers(pre_mol)){
   

@@ -211,8 +211,8 @@ save_as_image(ft, path = img_file)
 
 
 # plot (all vessels)
-p1 <- ggplot(filter(change, type=="All"), mapping=aes(x = date2020, y = change_perlog, fill = change_positive)) +
-  geom_col(alpha=1, width=0.9) +
+p1 <- ggplot(filter(change, type=="All"), mapping=aes(x = date2020, y = change_per, fill = change_positive)) +
+  geom_col(alpha=1, width=1) +
   ylab("") + xlab("") +
   geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
@@ -223,8 +223,8 @@ p1 <- ggplot(filter(change, type=="All"), mapping=aes(x = date2020, y = change_p
 
 
 # plot (categories)
-p2 <- ggplot(filter(change, type!="All"), mapping=aes(x = date2020, y = change_perlog, fill = change_positive)) +
-  geom_col(alpha=1, width=0.9) +
+p2 <- ggplot(filter(change, type!="All"), mapping=aes(x = date2020, y = change_per, fill = change_positive)) +
+  geom_col(alpha=1, width=1) +
   ylab("") + xlab("") +
   geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
   scale_x_date(date_breaks = "2 month", date_labels = "%b") +

@@ -23,8 +23,8 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 # select months to process
 dates <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month"),
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month"),
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
 )
 
 # select variables to compare
@@ -82,41 +82,46 @@ for (i in 1:length(dates)){
 # Plot monthly facets (density for T-AIS)
 #--------------------------------------------------------------------------
 
-jvar = "COUNT"
-
 # import land mask
 data(countriesHigh, package = "rworldxtra", envir = environment())
 
 # set color
 col <- rasterTheme(region = rev(brewer.pal(9, 'Spectral')))
 
-# import rasters
-input <- input_wmed  # use "input_wmed" or "input_global"
-tif_files <- list.files(input, full.names = TRUE, recursive = TRUE, pattern = sprintf("%s_dens.tif$", jvar))
-b <- stack(tif_files)
-#b <- crop(b, r_med)
+#for (j in 1:length(vars)){
 
-# facet plot
-land <- crop(countriesHigh, b)
-p <- levelplot(b, layout=c(7, 2),
-          par.settings = col, 
-          at=seq(0, 3.5, length.out=101),
-          names.attr=format(dates, "%b %Y"),
-          colorkey=list(height=0.8, width=1)) +
+  jvar <- "COUNT"
+
+  # import rasters
+  input <- input_wmed  # use "input_wmed" or "input_global"
+  tif_files <- list.files(input, full.names = TRUE, recursive = TRUE, pattern = sprintf("%s_dens.tif$", jvar))
+  b <- stack(tif_files)
+  #b <- crop(b, r_med)
+  
+  # facet plot
+  land <- crop(countriesHigh, b)
+  p <- levelplot(b, layout=c(6, 2),
+                 par.settings = col, 
+                 at=seq(0, 3.5, length.out=101),
+                 names.attr=format(dates, "%b %Y"),
+                 colorkey=list(height=0.8, width=1)) +
     layer(sp.lines(land, col="black", lwd=0.8))
+  
+  
+  # Save as png file
+  p_png <- paste0(out_dir, sprintf("%s_density_tAIS.png", jvar))
+  png(p_png, width = 24, height = 8, units = "cm", res = 300)
+  print(p)
+  trellis.focus("legend", side="right", clipp.off=TRUE, highlight=FALSE)
+  dev.off()
+  
+  ## calculate coefficient of variation (CV)
+  u_med <- mean(b, na.rm=TRUE)
+  s_med <- calc(b, fun=sd, na.rm=TRUE)
+  cv_med <- s_med/u_med
+#}
 
 
-# Save as png file
-p_png <- paste0(out_dir, "density_tAIS.png")
-png(p_png, width = 24, height = 8, units = "cm", res = 300)
-print(p)
-trellis.focus("legend", side="right", clipp.off=TRUE, highlight=FALSE)
-dev.off()
-
-## calculate coefficient of variation (CV)
-u <- mean(b, na.rm=TRUE)
-s <- calc(b, fun=sd, na.rm=TRUE)
-cv_med <- s/u
 
 #--------------------------------------------------------------------------
 # Plot monthly facets (density for S-AIS)
@@ -131,7 +136,7 @@ b <- stack(tif_files)
 b <- crop(b, r_med)
 
 # facet plot
-p <- levelplot(b, layout=c(7, 2),
+p <- levelplot(b, layout=c(6, 2),
                par.settings = col, 
                at=seq(0, 3.5, length.out=101),
                names.attr=format(dates, "%b %Y"),
@@ -140,16 +145,42 @@ p <- levelplot(b, layout=c(7, 2),
 
 
 # Save as png file
-p_png <- paste0(out_dir, "density_sAIS.png")
+p_png <- paste0(out_dir, sprintf("%s_density_sAIS.png", jvar))
 png(p_png, width = 24, height = 8, units = "cm", res = 300)
 print(p)
 trellis.focus("legend", side="right", clipp.off=TRUE, highlight=FALSE)
 dev.off()
 
 ## calculate coefficient of variation (CV)
-u <- mean(b, na.rm=TRUE)
-s <- calc(b, fun=sd, na.rm=TRUE)
-cv_glob <- s/u
+u_glob <- mean(b, na.rm=TRUE)
+s_glob <- calc(b, fun=sd, na.rm=TRUE)
+cv_glob <- s_glob/u_glob
+
+
+
+#--------------------------------------------------------------------------
+# Plot mean
+#--------------------------------------------------------------------------
+
+# combine CVs
+b_u <- brick(u_glob, u_med)
+
+# plot
+p <- levelplot(b_u, layout=c(2, 1),
+               par.settings = col, 
+               at=seq(0,  max(maxValue(b_u)), length.out=101),
+               names.attr=c("S-AIS", "T-AIS"),
+               colorkey=list(height=0.8, width=1)) +
+  layer(sp.lines(land, col="black", lwd=0.8))
+
+
+# Save as png file
+p_png <- paste0(out_dir, "u.png")
+png(p_png, width = 12, height = 8, units = "cm", res = 300)
+print(p)
+trellis.focus("legend", side="right", clipp.off=TRUE, highlight=FALSE)
+dev.off()
+
 
 
 #--------------------------------------------------------------------------
@@ -162,7 +193,7 @@ b_cv <- brick(cv_glob, cv_med)
 # plot
 p <- levelplot(b_cv, layout=c(2, 1),
                par.settings = col, 
-               at=seq(0, 1.8, length.out=101),
+               at=seq(0,  max(maxValue(b_cv)), length.out=101),
                names.attr=c("S-AIS", "T-AIS"),
                colorkey=list(height=0.8, width=1)) +
   layer(sp.lines(land, col="black", lwd=0.8))
@@ -191,7 +222,7 @@ b <- stack(tif_files)
 b <- crop(b, r_med)
 
 # facet plot
-p <- levelplot(b, layout=c(7, 2),
+p <- levelplot(b, layout=c(6, 2),
           par.settings = col,
           at=seq(-2.7, 2.7, length.out=101),
           names.attr=format(dates, "%b %Y"),
@@ -260,7 +291,7 @@ b <- crop(b, r_med)
 col <- rasterTheme(region = brewer.pal(9, 'RdBu'))
 
 # facet plot
-p <- levelplot(b, layout=c(7, 2),
+p <- levelplot(b, layout=c(6, 2),
           par.settings = col,
           at=seq(-1, 1, length.out=101),
           names.attr=format(dates, "%b %Y"),

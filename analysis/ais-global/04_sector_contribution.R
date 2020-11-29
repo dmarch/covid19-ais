@@ -18,6 +18,8 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 # select variables to summarize
 vars <- c("FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
+
+
 # import files
 tif_files <- paste0(input_dir, sprintf("%s_delta_mol.tif", vars))
 s <- stack(tif_files)

@@ -321,6 +321,8 @@ plotDelta <- function(delta, main = sprintf("Accumulated Delta Jan-Jun 2020 (%s)
 #-----------------------------------------------------------------------------------
 plotDensMol <- function(r, zlim, logT, mollT, col, main, axis_at, axis_labels, legend_horizontal = TRUE, breaks=NULL){
   
+  require(pals)
+  
   # import landmask
   data(countriesHigh, package = "rworldxtra", envir = environment())
   countriesHigh <- spTransform(countriesHigh, CRS("+proj=moll +ellps=WGS84"))
@@ -338,10 +340,17 @@ plotDensMol <- function(r, zlim, logT, mollT, col, main, axis_at, axis_labels, l
   }
   
   # log-transform if required
-  if(logT == TRUE){
-    r = log(r)
-    zlim = log(zlim)
-    axis_at = log(axis_at)
+  # if(logT == TRUE){
+  #   r = log(r)
+  #   zlim = log(zlim)
+  #   axis_at = log(axis_at)
+  # }
+  
+  # log-transform if required
+  if(is.function(logT)){
+    r = logT(r)
+    zlim = logT(zlim)
+    axis_at = logT(axis_at)
   }
   
   # plot
@@ -350,7 +359,7 @@ plotDensMol <- function(r, zlim, logT, mollT, col, main, axis_at, axis_labels, l
   if(mollT == TRUE) plot(box, border="grey60", add=TRUE)  # box
   plot(box, border="grey60", add=TRUE)  # box
   plot(r, zlim =  zlim, legend.only=TRUE, horizontal = legend_horizontal, col=col, legend.width=1, legend.shrink=0.4,
-       axis.args=list(at=axis_at, labels=axis_labels, cex.axis=1.2))
+       axis.args=list(at=axis_at, labels=axis_labels, cex.axis=1.8))
   # legend.args=list(text=expression(Traffic~density~(vessels~km^-2)),
   #                  side=1, font=2, line=2, cex=1.2))
 }
