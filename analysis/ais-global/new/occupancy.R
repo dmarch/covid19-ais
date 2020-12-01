@@ -117,23 +117,32 @@ dataw <- dcast(data, var + month ~ year, value.var = "occ_km2")
 change <- dataw %>%
   mutate(
     delta = `2020` - `2019`,
-    per = 100*(delta/`2019`),
-    perlog = 100*log(`2020`/`2019`),
+    per = (delta/`2019`),
+    perlog = log(`2020`/`2019`),
     change_positive = per > 0
-  )
+  ) %>%
+  mutate(monthAbb = month.abb[month])
 
+change$monthAbb <- factor(change$monthAbb, levels=month.abb[1:6])
 
-p2 <- ggplot(change, mapping=aes(x = month, y = per, fill = change_positive)) +
+p2 <- ggplot(change, mapping=aes(x = monthAbb, y = per, fill = change_positive)) +
   geom_col(alpha=1, width=0.8) +
   #ylab("Relative change (L%) in occupancy") + xlab("Month") +
   #scale_x_continuous( breaks = c(1,3,5), labels = month.abb[c(1, 3,5)]) +  # , labels = month.abb[1:6]
-  scale_x_continuous(breaks = 1:6) +
+  #scale_x_continuous(breaks = 1:6) +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
-  facet_wrap(var ~ ., ncol = 6) +
+  scale_y_continuous(labels = scales::percent)+
+  facet_wrap(var ~ ., ncol = 1) +
+  xlab("") + ylab("Relative change in occupancy") +
   theme_article() +
   guides(fill = FALSE)
 
+# add tags
+p2 <- tag_facet(p2, open = "", close = "")
 
+# export multi-panel plot
+out_file <- paste0(output_dir, "occupancy_relative.png")
+ggsave(out_file, p2, width=18, height=10, units = "cm")
 
 #-----------------------------------------------------------------
 # 2. Compare count with expected

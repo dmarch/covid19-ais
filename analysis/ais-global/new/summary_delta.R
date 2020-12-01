@@ -13,6 +13,7 @@ library(egg)
 library(dplyr)
 library(raster)
 library(pals)
+library(reshape2)
 
 # set input directory
 input_dir <- "data/out/ais-global/delta/"
@@ -126,7 +127,8 @@ for (j in 1:length(vars)){
 
 # combine data
 data <- data.table::rbindlist(histo_list)
-write.csv(data, )
+outfile <- paste0(out_dir, "delta_values.csv")
+write.csv(data, outfile, row.names = FALSE)
 
 
 # reorder vessel categories for plots
@@ -193,15 +195,71 @@ p <- tag_facet(p, open = "", close = "")
 out_file <- paste0(out_dir, "monthly_boxplots.png")
 ggsave(out_file, p, width=20, height=20, units = "cm")
 
-# dat <- ggplot_build(p)$data[[3]]
-# dat$col <- ifelse(dat$middle < 0, "red", "grey20")
-# p + geom_segment(data=dat, aes(x=xmin, xend=xmax,
-#                                y=middle, yend=middle, colour=col), size=1) +
-#   scale_color_manual(values=c("grey20", "red"))
-
-  
 
 
+#--------------------------------------------------------------------
+# Plot proportion of increases and decreases per month
+#-------------------------------------------------------------------- 
+
+data$positive <- data$vals > 0
+data$nochange <- data$vals == 0
+data$negative <- data$vals < 0
 
 
+# count number of classes per month and type
+data_cnt <- data %>%
+  group_by(var, month) %>%
+  summarize(pos = sum(positive),
+            #noch = sum(nochange),
+            neg = sum(negative),
+            total = sum(pos, neg),
+            positive = (pos/total),
+            negative = (neg/total))%>%#,
+            #nochange = (noch/total)) %>%
+  select(-c("pos", "neg", "total"))
 
+# convert from wide to long format
+long <- melt(data_cnt, id.vars=c("var", "month"))
+
+# plot data
+p <- ggplot(filter(long, variable!="nochange"), aes(x = month, y=value, group=variable)) +
+  geom_hline(yintercept = 0.5, linetype="dotted") +
+  geom_line(aes(color=variable), size=1) +
+  geom_point(aes(color=variable)) +
+  scale_color_manual(labels = c("Increase", "Decrease"), values=c("#9ecae1", "#e34a33"))+
+  facet_wrap(var~.)+
+  scale_y_continuous(labels = scales::percent)+
+  xlab("") + ylab("Ratio of grid cells with increases and decreases") +
+  theme_article() +
+  theme(legend.position = c(0.93, 0.95), legend.title = element_blank()) +
+  guides(fill = FALSE)
+
+# add tags
+p <- tag_facet(p, open = "", close = "")
+
+# export multi-panel plot
+out_file <- paste0(out_dir, "ratio_increase_decrease.png")
+ggsave(out_file, p, width=18, height=10, units = "cm")
+
+
+# ggplot(long, aes(x = month, y=value, fill=variable)) + 
+#   geom_bar(position="fill", stat="identity") +
+#   facet_wrap(var~.)
+# 
+# 
+# 
+# p <- ggplot() + geom_bar(data=filter(long, variable=="positive"), aes(x=month, y=value, fill=variable), position="stack", stat="identity") +
+#   geom_bar(data=filter(long, variable=="negative"), aes(x=month, y=-value, fill=variable), position="stack", stat="identity") +
+#   geom_hline(yintercept=0, color =c("white")) +
+#   #scale_fill_identity("Percent", labels = my.levels, breaks=my.legend.colors, guide="legend") + 
+#   #coord_flip() +
+#   facet_wrap(var~.)
+# 
+# 
+#   labs(title=my.title, y="",x="") +
+#   theme(plot.title = element_text(size=14, hjust=0.5)) +
+#   theme(axis.text.y = element_text(hjust=0)) +
+#   theme(legend.position = "bottom") +
+#   scale_y_continuous(breaks=seq(-100,100,25), limits=c(-100,100))
+# 
+# 
