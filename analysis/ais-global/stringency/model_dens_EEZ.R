@@ -3,9 +3,30 @@
 #-----------------------------------------------------------------------------
 # For each month amd country, add Stringency Index
 
+# https://www.nature.com/articles/s41598-020-75848-2
+# then calculated the country level monthly averaged NO2, AOD, and XCO2 values: https://www.nature.com/articles/s41467-020-18922-7#Sec11
+# On average, pollution concentrations decreased by 23.0% for NO2, 15.4% for PM2.5, and 12.5% for CO during January–March 2020 relative to the same period in 2019.
+
+# random effect for percentange change in mobility: https://www.nature.com/articles/s41598-020-76763-2
+
+# baseline for air quality. https://advances.sciencemag.org/content/6/28/eabc2992
 
 library(dplyr)
 library(lubridate)
+library(reshape2)
+library(lmerTest)
+library(lme4)
+library(sjPlot)
+library(sjmisc)
+library(ggplot2)
+require(lattice)  
+library(ggeffects)
+library(pdp)
+library(xlsx)
+library(merTools)
+library(HLMdiag)
+library(DHARMa)
+#library(mixedup) # remotes::install_github('m-clark/mixedup')
 
 #---------------------------------------------
 # Import and prepare density data 
@@ -13,25 +34,49 @@ library(lubridate)
 # import data
 data <- read.csv("data/out/ais-global/eez/eez_ais_density.csv")
 
-# parse date and derive month-year
-data$date <- parse_date_time(data$date, "Ymd")
-data$month <- month(data$date)
-data$year <- year(data$date)
-
-# select main territories (TERRITORY1 name = SOVEREIGN1 name)
+# select EEZ:
+# main territories (TERRITORY1 name = SOVEREIGN1 name)
 data <- data %>%
   mutate(TERRITORY1 = as.character(TERRITORY1),
-         SOVEREIGN1 = as.character(SOVEREIGN1)) %>%
+         SOVEREIGN1 = as.character(SOVEREIGN1),
+         date = parse_date_time(date, "Ymd")) %>%
   filter(TERRITORY1 == SOVEREIGN1)
 
 # filter by ship type
 jvar <- "PASSENGER"
 jdata <- filter(data, var == jvar)
-#rm(data)
+
+# Summary statistics
+sdata <- jdata %>%
+  group_by(ISO_SOV1, TERRITORY1, date) %>%
+  filter(vessels_km2 > 0) %>%
+  summarize(medDens = median(vessels_km2),
+            avgDens = mean(vessels_km2),
+            surface = sum(eez_km2),
+            ncells = n()) %>%
+  mutate(month = month(date),
+         year = year(date),
+         avgDensLog = log10(avgDens))
+
+# select countries with at least 3 cells and data for all months (n=128)
+select_countries <- sdata %>%
+  group_by(ISO_SOV1, TERRITORY1) %>%
+  filter(ncells > 3) %>%
+  summarize(n_months = n()) %>%
+  filter(n_months == 12)
+
+# filter dataset per selected countries
+jdata <- jdata %>% filter(ISO_SOV1 %in% select_countries$ISO_SOV1)
+sdata <- sdata %>% filter(ISO_SOV1 %in% select_countries$ISO_SOV1)
 
 
-
-
+# calculate change
+change <- sdata %>%
+  dcast(ISO_SOV1 + TERRITORY1 + month ~ year, value.var=c("avgDens")) %>%
+  rename(dens2019 = `2019`, dens2020 = `2020`) %>%
+  mutate(delta = dens2020 - dens2019,
+         per = 100*(delta/dens2019),
+         date = as.Date(paste(2020, month, 1, sep="-")))
 
 
 #---------------------------------------------
@@ -45,8 +90,33 @@ si <- read.csv("data/out/stringency/stringency.csv")
 si_sum <- si %>%
   group_by(CountryCode, Month) %>%
   summarize(SiAvg = mean(StringencyIndex)) %>%
-  rename(month = Month) %>%
-  mutate(date = as.Date(paste(2020, month, 1, sep="-")))
+  mutate(date = as.Date(paste(2020, Month, 1, sep="-"))) %>%
+  dplyr::select(-Month)
+
+# Calculate class
+si_sum$SiClass <- cut(si_sum$SiAvg, 4)
+levels(si_sum$SiClass) <- c("low", "midlow", "midhigh", "high")
+
+
+
+#---------------------------------------------
+# Import World Bank indicators
+#---------------------------------------------
+
+# income groups and regions
+# source: https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups
+classfile <- "data/input/worldbank/CLASS.xls"
+class <- read.xlsx(classfile, sheetName = "List of economies", header=TRUE, startRow = 5, endRow = 224)
+class <- dplyr::select(class, Code, Income.group, Region) %>% rename(ISO = Code, income = Income.group, region = Region)
+class <- class[-1,]  # remove first row
+
+# rename factors
+class$income <- as.character(class$income)
+class$income[class$income == "High income"] <- "High"
+class$income[class$income == "Upper middle income"] <- "Upper middle"
+class$income[class$income == "Lower middle income"] <- "Lower middle"
+class$income[class$income == "Low income"] <- "Low"
+class$income <- factor(class$income, levels=c("High", "Upper middle", "Lower middle", "Low"))
 
 
 #---------------------------------------------
@@ -56,37 +126,29 @@ si_sum <- si %>%
 # combine with countries with EEZ by ISO code
 # first, filter countries without SI
 # then combine data by date and country code
-jdata2 <- jdata %>%
+sdata <- sdata %>%
   filter(ISO_SOV1 %in% unique(si_sum$CountryCode)) %>%
-  left_join(si_sum, by = c("ISO_SOV1" = "CountryCode", "date" = "date"))
-
-# Create a binary variable to define lockdown
-jdata2 <- jdata2 %>%
+  left_join(si_sum, by = c("ISO_SOV1" = "CountryCode", "date" = "date")) %>%
+  left_join(class, by = c("ISO_SOV1" = "ISO")) %>%
   mutate(SiAvg = replace(SiAvg, is.na(SiAvg), 0)) %>%  ## CARE: FIRST REPLACE THOSE NA IN 2020. NOT ALL COUNTRIES HAVE DATA.
-  mutate(covid = ifelse(SiAvg > 20, "after", "before"))
+  mutate(covid = ifelse(SiAvg > 25, "after", "before"))
 
-# create time
-jdata2 <- jdata2 %>%
-  mutate(time = as.numeric(difftime(jdata2$date, min(jdata2$date), units="days")))
+# add data into change
+change <- change %>%
+  filter(ISO_SOV1 %in% unique(si_sum$CountryCode)) %>%
+  left_join(si_sum, by = c("ISO_SOV1" = "CountryCode", "date" = "date")) %>%
+  left_join(class, by = c("ISO_SOV1" = "ISO")) %>%
+  filter(!is.na(SiAvg))  ## CARE: FIRST REPLACE THOSE NA IN 2020. NOT ALL COUNTRIES HAVE DATA.
+
+# add data into cell data
+jdata <- jdata %>%
+  filter(ISO_SOV1 %in% unique(si_sum$CountryCode)) %>%
+  left_join(si_sum, by = c("ISO_SOV1" = "CountryCode", "date" = "date")) %>%
+  left_join(class, by = c("ISO_SOV1" = "ISO")) %>%
+  mutate(SiAvg = replace(SiAvg, is.na(SiAvg), 0)) %>%  ## CARE: FIRST REPLACE THOSE NA IN 2020. NOT ALL COUNTRIES HAVE DATA.
+  mutate(covid = ifelse(SiAvg > 25, "after", "before"))
 
 
-
-#---------------------------------------------
-# Prepare response variable
-#---------------------------------------------
-# Median density per EEZ and date
-
-jdata3 <- jdata2 %>%
-  group_by(ISO_SOV1, TERRITORY1, date, SiAvg, covid, time) %>%
-  filter(vessels_km2 > 0) %>%
-  summarize(medDens = median(vessels_km2),
-            avgDens = mean(vessels_km2),
-            surface = sum(eez_km2),
-            ncells = n())
-
-jdata3$month <- month(jdata3$date)
-jdata3$year <- year(jdata3$date)
-jdata3$avgDensLog <- log10(jdata3$avgDens)
 
 #---------------------------------------------
 # Model
@@ -118,11 +180,7 @@ m6 <- lme(data=jdata3, vessels ~ year:month)
 m7 <- lme(data=jdata3, vessels ~ SiMed * month, random= ~1|ISO_SOV1)
 m8 <- lme(data=jdata3, vessels ~ covid * month, random= ~1|ISO_SOV1)
 
-library(sjPlot)
-library(sjmisc)
-library(ggplot2)
-require(lattice)  
-library(ggeffects)
+
 plot_model(m6, type = "pred", terms = c("month", "year"))
 p <- ggpredict(m6, terms = c("month", "year"))
 plot(p)
@@ -164,7 +222,7 @@ lattice::dotplot(ranef(m5, postVar = TRUE))
 
 
 
-library(pdp)
+
 
 # Compute partial dependence data for lstat and rm
 pd <- partial(m5, pred.var = c("SiMed", "month"))
@@ -204,54 +262,134 @@ m1 <- glmer(data=jdata2, vessels ~ covid * month + (1|ISO_SOV1/idcell), offset=l
 
 
 #---------------------------------------------
-# Model differences
+# Model delta
 #---------------------------------------------
 # change from baseline as a dependent variable in mixed models, specifically mixed models for repeat measurements (MMRM).
 
-# transform from long to wide format
-library(reshape2)
-wide <- jdata3 %>%
-  dcast(ISO_SOV1 + TERRITORY1 + month ~ year, value.var=c("avgDens")) %>%
-  left_join(si_sum, by = c("ISO_SOV1" = "CountryCode", "month" = "month")) %>%
-  filter(!is.na(SiAvg)) %>%
-  rename(dens2019 = `2019`, dens2020 = `2020`) %>%
-  mutate(delta = dens2020 - dens2019,
-         per = 100*(delta/dens2019))
+change$perT <- asin(sqrt(change$per))
 
-
-# model
-m1 <- glm(delta ~ SiAvg, family = gaussian, data = wide)
+m1 <- lmer(per ~ SiAvg + income + (1|region/ISO_SOV1), data = change)
 p <- ggpredict(m1, terms = c("SiAvg"))
-plot(p)
-
-m2 <- glm(dens2020 ~ SiAvg + dens2019, family = gaussian, data = wide)
-p <- ggpredict(m2, terms = c("SiAvg"))
-plot(p)
-
-m3 <- glm(delta ~ SiAvg + ISO_SOV1, family = gaussian, data = wide)
-p <- ggpredict(m3, terms = c("SiAvg"))
+p <- ggpredict(m1, terms = c("income"))
+p <- ggpredict(m1, terms = c("region"))
 plot(p)
 
 
-m4 <- glm(per ~ SiAvg + dens2019, family = gaussian, data = wide)
-p <- ggpredict(m4, terms = c("SiAvg"))
+# Check residuals
+Plot.Model.F.Linearity<-plot(resid(m1), change$per) 
+
+
+# confidence intervals
+confint(m1)
+
+rr1 <- ranef(m1, condVar = TRUE)
+
+dotplot(rr1$ISO_SOV1$SiAvg)
+
+dd <- as.data.frame(rr1$ISO_SOV1)
+
+
+dd <- as.data.frame(rr1)
+ggplot(dd, aes(y=grp,x=condval)) +
+    geom_point() + facet_wrap(~term,scales="free_x") +
+    geom_errorbarh(aes(xmin=condval -2*condsd,
+                       xmax=condval +2*condsd), height=0)
+
+
+# interval estimates
+predictInterval(m1)   # for various model predictions, possibly with new data
+REsim(m1)             # mean, median and sd of the random effect estimates
+plotREsim(REsim(m1))  # plot the interval estimates
+
+# predict
+predict_with_re <- predict(m1)
+
+
+re = ranef(m1)
+qplot(x = re$region, geom = 'density', xlim = c(-3, 3))
+
+
+# random slope
+m1 <- lmer(delta ~ month + income + (1 + ISO_SOV1), data = change)
+
+
+m1 <- lmer(delta ~ month + income + (1|ISO_SOV1) + (0 + month|ISO_SOV1), data = change)
+
+
++ (0 + x|groups)
+
+# add month
+
+
+
+#---------------------------------------------
+# Model change from baseline
+#---------------------------------------------
+# https://core.ac.uk/download/pdf/3165006.pdf
+
+change$dens2020log <- log(change$dens2020)
+change$dens2019log <- log(change$dens2019)
+
+m1 <- lmer(dens2020log ~ dens2019log + SiAvg + income + (SiAvg|ISO_SOV1), data = change)
+p <- ggpredict(m1, terms = c("SiAvg"))
+p <- ggpredict(m1, terms = c("ISO_SOV1"))
+p <- ggpredict(m1, terms = c("income"))
 plot(p)
 
 
-library(lmerTest)
-m3 <- lmer(data=wide, delta ~ poly(SiAvg, 2) + (1|ISO_SOV1))
-p <- ggpredict(m3, terms = c("SiAvg [all]"))
+p <- ggpredict(m1, terms = c("SiAvg", "ISO_SOV1"), type="re")
+%>% plot()
+
+# Check residuals
+plot(m1)
+
+# check variance
+Model.F.Res<- residuals(m1) #extracts the residuals and places them in a new column in our original data table
+Abs.Model.F.Res <-abs(Model.F.Res) #creates a new column with the absolute value of the residuals
+Model.F.Res2 <- Abs.Model.F.Res^2 #squares the absolute values of the residuals to provide the more robust estimate
+change$Model.F.Res2 <- Model.F.Res2
+Levene.Model.F <- lm(Model.F.Res2 ~ ISO_SOV1, data=change) #ANOVA of the squared residuals
+anova(Levene.Model.F) #displays the results
+# no Homogeneity of Variance
+
+
+#---------------------------------------------
+# Model density
+#---------------------------------------------
+#sdata$month <- as.factor(sdata$month)
+m1 <- lmer(avgDensLog ~ covid*month + (1|region/ISO_SOV1), data = sdata)
+p <- ggpredict(m1, terms = c("SiAvg"))
+p <- ggpredict(m1, terms = c("covid"))
+p <- ggpredict(m1, terms = c("month"))
+p <- ggpredict(m1, terms = c("SiAvg", "month"))
+p <- ggpredict(m1, terms = c("covid", "month"))
+p <- ggpredict(m1, terms = c("income"))
 plot(p)
 
-m4 <- lmer(data=wide, delta ~ SiAvg + (1|ISO_SOV1))
-p <- ggpredict(m4, terms = c("SiAvg"))
-plot(p)
 
-m5 <- lmer(dens2020 ~ SiAvg + dens2019 + month + (1|ISO_SOV1), data = wide)
-p <- ggpredict(m5, terms = c("dens2019"))
-plot(p)
+m1 <- lmer(avgDensLog ~ covid*month + income + (1|region/ISO_SOV1), data = sdata)
+
+plot(m1)
+plotREsim(REsim(m1))  # plot the interval estimates
+
+# Check residuals
+# https://ademos.people.uic.edu/Chapter18.html
+Plot.Model.F.Linearity<-plot(resid(m1), jdata$avgDensLog) 
+
+# check variance
+jdata$Model.F.Res<- residuals(m1) #extracts the residuals and places them in a new column in our original data table
+jdata$Abs.Model.F.Res <-abs(jdata$Model.F.Res) #creates a new column with the absolute value of the residuals
+jdata$Model.F.Res2 <- jdata$Abs.Model.F.Res^2 #squares the absolute values of the residuals to provide the more robust estimate
+Levene.Model.F <- lm(Model.F.Res2 ~ ISO_SOV1, data=jdata) #ANOVA of the squared residuals
+anova(Levene.Model.F) #displays the results
+# no Homogeneity of Variance
 
 
-m5 <- lmer(per ~ SiAvg + (1|ISO_SOV1), data = wide)
-p <- ggpredict(m5, terms = c("SiAvg"))
-plot(p)
+Plot.m1 <- plot(m1) #creates a fitted vs residual plot
+Plot.m1
+
+#---------------------------------------------
+# Detrend
+#---------------------------------------------
+
+

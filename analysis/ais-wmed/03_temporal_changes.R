@@ -144,13 +144,14 @@ change <- mave_sel %>%
 max_decline <- change %>%
   filter(date2020 > as.Date("2020-03-11")) %>%
   group_by(type) %>%
-  summarize(max_drop = min(change_perlog, na.rm=TRUE),
-            last_drop = last(change_perlog)) %>%
+  summarize(max_drop = min(change_per, na.rm=TRUE),
+            median_drop = median(change_per, na.rm=TRUE),
+            last_drop = last(change_per)) %>%
   merge(., change, by = 'type') %>%
-  filter(max_drop == change_perlog) %>%
-  dplyr::select(type, max_drop, date2020, last_drop) %>%
+  filter(max_drop == change_per) %>%
+  dplyr::select(type, max_drop, date2020, median_drop, last_drop) %>%
   rename(date_max = date2020) %>%
-  mutate(date_last = as.Date("2020-06-30"))
+  mutate(date_last = last(change$date2020))
 
 
 #-----------------------------------------------------------------
@@ -169,6 +170,9 @@ max_decline <- arrange(max_decline, type)
 max_decline$type <- as.character(max_decline$type)
 max_decline$type <- vars_renames
 
+# reorder vessel categories for plots
+max_decline$type <- factor(max_decline$type, levels=c("All vessels", "Cargo", "Tanker", "Passenger", "Fishing", "Recreational", "Other"))
+
 
 # create flextable
 ft <- flextable(max_decline)  # data is a data.frame
@@ -179,11 +183,12 @@ ft <- set_header_labels(ft, type = "Vessel category",
                         max_drop = "(%)",
                         date_max = "Date",
                         last_drop = "(%)",
+                        median_drop = "(%)",
                         date_last = "Date")
 
 # add rows on top to include groups
 # also include vertical lines to separate groups
-ft <- add_header_row(ft, values = c("", "Maximal", "Most recent"), colwidths = c(1,2,2))
+ft <- add_header_row(ft, values = c("", "Maximal", "Median", "Most recent"), colwidths = c(1,2,1,2))
 ft <- theme_booktabs(ft)
 
 # set decimal formats
@@ -209,26 +214,32 @@ save_as_image(ft, path = img_file)
 # 2.2. Plot changes
 #-----------------------------------------------------------------
 
-
 # plot (all vessels)
-p1 <- ggplot(filter(change, type=="All"), mapping=aes(x = date2020, y = change_per, fill = change_positive)) +
-  geom_col(alpha=1, width=1) +
+p1 <- ggplot(filter(change, type=="All")) +
+  geom_rect(aes(xmin=as.Date("2020-03-11"), xmax=as.Date("2020-06-22"), ymin=-Inf, ymax=Inf), fill="grey90", alpha=0.5) +
+  geom_col(aes(x = date2020, y = change_per, fill = change_positive), alpha=1, width=1) +
+  geom_point(data = filter(max_decline, type=="All vessels"), aes(x=date_max, y=max_drop), shape=1, size=3, stroke=1)+
   ylab("") + xlab("") +
-  geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
+  #geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
-  annotate(geom = "text", x = first(mave_sel$date2020), y = Inf, label = "a", hjust = 1.2, vjust = 2, fontface = 2, family = "") +
+  geom_text(data = filter(max_decline, type=="All vessels"), aes(x=as.Date("2020-10-11"), y=-60,label=paste(format(round(max_drop, digits=1), nsmall = 1) , "%")))+
+  geom_text(data = filter(max_decline, type=="All vessels"), aes(x=as.Date("2020-05-01"), y=15, label=paste(format(round(median_drop, digits=1), nsmall = 1), "%")))+
   theme_article() +
   guides(fill = FALSE)
 
 
 # plot (categories)
-p2 <- ggplot(filter(change, type!="All"), mapping=aes(x = date2020, y = change_per, fill = change_positive)) +
-  geom_col(alpha=1, width=1) +
+p2 <- ggplot(filter(change, type!="All")) +
+  geom_rect(aes(xmin=as.Date("2020-03-11"), xmax=as.Date("2020-06-22"), ymin=-Inf, ymax=Inf), fill="grey90", alpha=0.5) +
+  geom_col(aes(x = date2020, y = change_per, fill = change_positive), alpha=1, width=1) +
+  geom_point(data = filter(max_decline, type!="All vessels"), aes(x=date_max, y=max_drop), shape=1, size=3, stroke=1)+
   ylab("") + xlab("") +
-  geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
+  #geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
   scale_x_date(date_breaks = "2 month", date_labels = "%b") +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
+  geom_text(data = filter(max_decline, type!="All vessels"), aes(x=as.Date("2020-09-11"), y=-80, label=paste(format(round(max_drop, digits=1), nsmall = 1) , "%")))+
+  geom_text(data = filter(max_decline, type!="All vessels"), aes(x=as.Date("2020-05-01"), y=100, label=paste(format(round(median_drop, digits=1), nsmall = 1), "%")))+
   facet_wrap(type ~ ., ncol = 2) +
   theme_article() +
   guides(fill = FALSE)
