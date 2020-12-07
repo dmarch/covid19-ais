@@ -7,6 +7,7 @@
 library(raster)
 library(ncdf4)
 library(RColorBrewer)
+library(spatialEco)
 source("https://raw.githubusercontent.com/dmarch/abigoos/master/R/utils.R")
 source("scr/fun_common.R")  # bb()
 source("scr/fun_ais.R")
@@ -35,18 +36,58 @@ names(pre_mol) <- round(as.numeric(sub("X", "", names(s)))/365.2422)
 
 
 #---------------------------------------------------------------------
-# Mann-Kendall trend
+# Mann-Kendall trend (2010-2019)
 #---------------------------------------------------------------------
 require(raster)
 require(Kendall)
 library(devtools)
-source_gist("https://gist.github.com/hakimabdi/8ca1d2783b0ab8aec5cac993573b08ee")
 
-# smooth
-pre_mol_s <- smooth.time.series(pre_mol, f = 0.8, smooth.data = FALSE)
+# select years
+ships <- subset(pre_mol, 19:28)
+#ships <- crop(ships, extent(-1e6,4e6,3e6,6e6))
 
-trend <- MKraster(subset(pre_mol, 10:28), type = "both")
-plot(trend)
+# find locations without missing data
+s_count <- ships/ships
+s_count <- sum(s_count, na.rm=TRUE)
+s_count[s_count<5] <- NA
+s_count <- s_count/s_count
+ships <- mask(ships, s_count)
+
+# imputes missing NA values
+#ships_s <- smooth.time.series(ships, f = 0.8, smooth.data = FALSE)
+
+# kendall
+k <- raster.kendall(ships, p.value=TRUE, z.value=TRUE, 
+                    intercept=TRUE, confidence=TRUE, 
+                    tau=TRUE)
+
+# keep brick
+writeRaster(k, "data/out/ais-global/occupancy/tournadre_trend.grd")
+
+
+#---------------------------------------------------------------------
+# Calculate difference 2019 from average 2016-2018
+#---------------------------------------------------------------------
+
+# select years
+ships1418 <- subset(pre_mol, 23:27)
+ships2019 <- pre_mol$X2019
+
+# calculate average previous years
+ships_avg <- mean(ships1418, na.rm=TRUE)
+ships_sd <- calc(ships1418, fun=sd, na.rm=TRUE)
+ships_sd[ships_sd==0]<-NA
+
+# calculate anomaly
+delta <- ships2019 - ships_avg
+delta_st <- delta/ships_sd
+per <- 100*(delta/ships_avg)
+
+#---------------------------------------------------------------------
+# Calculate difference 2019 from average 2016-2018
+#---------------------------------------------------------------------
+
+#xmin = -1.60, xmax = 9.93, ymax = 35.56, ymin = 43.45
 
 
 
@@ -102,7 +143,7 @@ plot(data$year, data$occ_km2)
 # 291,037,421 km2 from our data
 
 # 58,218,265
-https://otexts.com/fpp2/stochastic-and-deterministic-trends.html
+#https://otexts.com/fpp2/stochastic-and-deterministic-trends.html
 
 data <- filter(data, year < 2020)
 
