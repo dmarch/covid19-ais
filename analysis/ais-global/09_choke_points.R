@@ -106,8 +106,8 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
 # select dates
 dates <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month"),
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month"),
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
 )
 
 # transform chokepoint into Mollweide
@@ -165,7 +165,7 @@ data$month <- month(data$date)
 data$year <- as.character(year(data$date))
 
 # plot by type
-p <- ggplot(filter(data, var == "COUNT", month <= 6), aes(x = month)) +
+p <- ggplot(filter(data, var == "COUNT", month <= 7), aes(x = month)) +
   geom_line(aes(y = value, color = year), size = 1) +
   scale_color_manual(values=c('#9ecae1', "#3182bd"))+
   scale_x_continuous( breaks = c(1,3,5), labels = month.abb[c(1, 3,5)]) +  # , labels = month.abb[1:6]
@@ -200,13 +200,13 @@ change$var <- factor(change$var, levels = c("COUNT", "CARGO", "TANKER", "PASSENG
 
 # plot all vessels
 
-p2 <- ggplot(filter(change, var == "COUNT", month <= 6), mapping=aes(x = month, y = delta, fill = change_positive)) +
+p2 <- ggplot(filter(change, var == "COUNT", month <= 7), mapping=aes(x = month, y = delta, fill = change_positive)) +
   geom_col(alpha=1, width=0.8) +
   #ylab("Relative change (%) in traffic density")+
   ylab(expression(Absolute~change~(Delta~vessels~km^-2~month^-1))) +
   xlab("Month") +
   #scale_x_continuous( breaks = c(1,3,5), labels = month.abb[c(1, 3,5)]) +  # , labels = month.abb[1:6]
-  scale_x_continuous(breaks = 1:6) +
+  scale_x_continuous(breaks = 1:7) +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
   facet_wrap(name ~ ., ncol = 5) +
   theme_article() +
@@ -219,12 +219,12 @@ ggsave(out_file, p2, width=19, height=8, units = "cm")
 
 
 library(ggforce)
-p3 <- ggplot(filter(change,  var != "COUNT", month <= 6), mapping=aes(x = month, y = delta, fill = change_positive)) +
+p3 <- ggplot(filter(change,  var != "COUNT", month <= 7), mapping=aes(x = month, y = delta, fill = change_positive)) +
   geom_col(alpha=1, width=0.8) +
   #ylab("Relative change (%) in traffic density") + xlab("Month") +
   ylab(expression(Absolute~change~(Delta~vessels~km^-2~month^-1))) +
   #scale_x_continuous( breaks = c(1,3,5), labels = month.abb[c(1, 3,5)]) +  # , labels = month.abb[1:6]
-  scale_x_continuous(breaks = 1:6) +
+  scale_x_continuous(breaks = 1:7) +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
   facet_wrap(name ~ var, ncol = 5) +
   theme_article() +

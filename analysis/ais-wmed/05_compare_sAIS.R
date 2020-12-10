@@ -23,8 +23,8 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 # select months to process
 dates <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month"),
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month"),
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
 )
 
 # select variables to compare
@@ -100,7 +100,7 @@ col <- rasterTheme(region = rev(brewer.pal(9, 'Spectral')))
   
   # facet plot
   land <- crop(countriesHigh, b)
-  p <- levelplot(b, layout=c(6, 2),
+  p <- levelplot(b, layout=c(7, 2),
                  par.settings = col, 
                  at=seq(0, 3.5, length.out=101),
                  names.attr=format(dates, "%b %Y"),
@@ -136,7 +136,7 @@ b <- stack(tif_files)
 b <- crop(b, r_med)
 
 # facet plot
-p <- levelplot(b, layout=c(6, 2),
+p <- levelplot(b, layout=c(7, 2),
                par.settings = col, 
                at=seq(0, 3.5, length.out=101),
                names.attr=format(dates, "%b %Y"),
@@ -222,7 +222,7 @@ b <- stack(tif_files)
 b <- crop(b, r_med)
 
 # facet plot
-p <- levelplot(b, layout=c(6, 2),
+p <- levelplot(b, layout=c(7, 2),
           par.settings = col,
           at=seq(-2.7, 2.7, length.out=101),
           names.attr=format(dates, "%b %Y"),
@@ -291,7 +291,7 @@ b <- crop(b, r_med)
 col <- rasterTheme(region = brewer.pal(9, 'RdBu'))
 
 # facet plot
-p <- levelplot(b, layout=c(6, 2),
+p <- levelplot(b, layout=c(7, 2),
           par.settings = col,
           at=seq(-1, 1, length.out=101),
           names.attr=format(dates, "%b %Y"),

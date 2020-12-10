@@ -27,11 +27,11 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
 ### Option 1: select months to process (2020 vs 2019)
 dates_post <- c(
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 dates_pre <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 ### Option 2: select months to process (2020 vs Jan 2020)

@@ -41,8 +41,8 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
 # select months to process
 dates <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month"),
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month"),
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 #-------------------------------

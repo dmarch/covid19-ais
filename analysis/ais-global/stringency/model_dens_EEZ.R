@@ -28,6 +28,13 @@ library(HLMdiag)
 library(DHARMa)
 #library(mixedup) # remotes::install_github('m-clark/mixedup')
 
+
+## Set output plots
+output_data <- "results/ais-global/eez"
+if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
+
+
+
 #---------------------------------------------
 # Import and prepare density data 
 #---------------------------------------------
@@ -43,7 +50,9 @@ data <- data %>%
   filter(TERRITORY1 == SOVEREIGN1)
 
 # filter by ship type
-jvar <- "PASSENGER"
+vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
+
+jvar <- vars[1]
 jdata <- filter(data, var == jvar)
 
 # Summary statistics
@@ -77,6 +86,97 @@ change <- sdata %>%
   mutate(delta = dens2020 - dens2019,
          per = 100*(delta/dens2019),
          date = as.Date(paste(2020, month, 1, sep="-")))
+
+
+#---------------------------------------------
+# Plots
+#---------------------------------------------
+
+library(ggplot2)
+library(egg)
+
+
+# calculate monthly summaries
+month_sum <- change %>%
+  group_by(date) %>%
+  summarize(n = n(),
+            delta_avg = mean(delta, na.rm=TRUE),
+            delta_sd = sd(delta, na.rm=TRUE),
+            delta_sem = delta_sd/sqrt(n),
+            delta_lci = delta_avg + qt((1-0.95)/2, df=n-1) * delta_sem,
+            delta_uci = delta_avg - qt((1-0.95)/2, df=n-1) * delta_sem,
+            per_avg = mean(per, na.rm=TRUE),
+            per_sd = sd(per, na.rm=TRUE))
+
+# country profiles (relative change per month)
+# Plot time series all countries in the same plot
+p1 <- ggplot(change, aes(x = date)) +
+  geom_line(aes(y = delta, group = TERRITORY1), size = 0.7, color="grey50", alpha=0.2) +
+  geom_line(data=month_sum, aes(x=date, y = delta_avg), size = 1, color="black", alpha=0.8) +
+  geom_ribbon(data=month_sum, aes(x=date, ymin = delta_avg-delta_sd, ymax = delta_avg+delta_sd), fill="#3182bd", alpha=.2, linetype=0) +
+  geom_hline(yintercept = 0, linetype="dotted") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
+  ylab(expression(Absolute~change~(Delta~vessels~km^-2~month^-1))) +
+  xlab("") +
+  theme_article() +
+  theme(legend.position = c(0.85, 0.2), legend.title = element_blank())
+
+# export multi-panel plot
+out_file <- paste0(output_data, "/", jvar, "_eez_profiles_delta.png")
+ggsave(out_file, p1, width=12, height=10, units = "cm")
+
+p2 <- ggplot(change, aes(x = date)) +
+  geom_line(aes(y = per, group = TERRITORY1), size = 0.7, color="grey50", alpha=0.2) +
+  geom_line(data=month_sum, aes(x=date, y = per_avg), size = 1, color="black", alpha=0.8) +
+  geom_ribbon(data=month_sum, aes(x=date, ymin = per_avg-per_sd, ymax = per_avg+per_sd), fill="#3182bd", alpha=.2, linetype=0) +
+  geom_hline(yintercept = 0, linetype="dotted") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
+  ylab("Relative change (%)") +
+  xlab("") +
+  theme_article() +
+  theme(legend.position = c(0.85, 0.2), legend.title = element_blank())
+
+# export multi-panel plot
+out_file <- paste0(output_data, "/", jvar, "_eez_profiles_per.png")
+ggsave(out_file, p2, width=12, height=10, units = "cm")
+
+
+
+# individual country profiles
+sel_countries <- c("Spain", "France", "Italy", "China", "India", "United States", "South Korea", "Indonesia", "United Kingdom")
+
+
+p3 <- ggplot(filter(change, TERRITORY1 %in% sel_countries), aes(x = date)) +
+  geom_line(aes(y = delta, group = TERRITORY1, color = TERRITORY1), size = 1) +
+  geom_hline(yintercept = 0, linetype="dotted") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
+  #scale_colour_brewer(palette="Set2") +
+  ylab(expression(Absolute~change~(Delta~vessels~km^-2~month^-1))) +
+  xlab("") +
+  facet_wrap(TERRITORY1 ~ ., ncol = 3) +
+  theme_article() +
+  theme(legend.position = "none")
+
+# export multi-panel plot
+out_file <- paste0(output_data, "/", jvar, "_eez_individual_profiles_delta.png")
+ggsave(out_file, p3, width=18, height=14, units = "cm")
+
+
+p4 <- ggplot(filter(change, TERRITORY1 %in% sel_countries), aes(x = date)) +
+  geom_line(aes(y = per, group = TERRITORY1, color = TERRITORY1), size = 1) +
+  geom_hline(yintercept = 0, linetype="dotted") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
+  #scale_colour_brewer(palette="Set2") +
+  ylab("Relative change (%)") +
+  xlab("") +
+  facet_wrap(TERRITORY1 ~ ., ncol = 3) +
+  theme_article() +
+  theme(legend.position = "none")
+
+out_file <- paste0(output_data, "/", jvar, "_eez_individual_profiles_per.png")
+ggsave(out_file, p4, width=18, height=14, units = "cm")
+
+
 
 
 #---------------------------------------------
@@ -387,9 +487,5 @@ anova(Levene.Model.F) #displays the results
 
 Plot.m1 <- plot(m1) #creates a fitted vs residual plot
 Plot.m1
-
-#---------------------------------------------
-# Detrend
-#---------------------------------------------
 
 
