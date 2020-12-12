@@ -30,8 +30,8 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
 # select months to process
 dates <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month"),
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month"),
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
 ) #%>% format("%Y%m%d")
 
 
@@ -97,7 +97,7 @@ p1 <- ggplot(data,  aes(x = month)) + #filter(data, var == "COUNT")
   geom_line(aes(y = occ_high_km2, color = year), size = 1) +
   scale_color_manual(values=c('#9ecae1', "#3182bd"))+
   #scale_x_date(date_breaks = "2 month", date_labels = "%b") +
-  scale_x_continuous(breaks = 1:6) +
+  scale_x_continuous(breaks = 1:7) +
   ylab("") + xlab("") +
   facet_wrap(var ~ ., ncol = 6)+#, scales = "free") + # , 
   theme_article() +
@@ -123,7 +123,7 @@ change <- dataw %>%
   ) %>%
   mutate(monthAbb = month.abb[month])
 
-change$monthAbb <- factor(change$monthAbb, levels=month.abb[1:6])
+change$monthAbb <- factor(change$monthAbb, levels=month.abb[1:7])
 
 p2 <- ggplot(change, mapping=aes(x = monthAbb, y = per, fill = change_positive)) +
   geom_col(alpha=1, width=0.8) +
@@ -132,7 +132,7 @@ p2 <- ggplot(change, mapping=aes(x = monthAbb, y = per, fill = change_positive))
   #scale_x_continuous(breaks = 1:6) +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
   scale_y_continuous(labels = scales::percent)+
-  facet_wrap(var ~ ., ncol = 1) +
+  facet_wrap(var ~ ., ncol = 3) +
   xlab("") + ylab("Relative change in occupancy") +
   theme_article() +
   guides(fill = FALSE)

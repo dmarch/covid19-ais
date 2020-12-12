@@ -2,51 +2,6 @@ library(TSrepr)
 library(ggplot2)
 library(data.table)
 
-data("elec_load")
-dim(elec_load)
-
-
-
-data_seasprof <- repr_matrix(elec_load, func = repr_seas_profile,
-                             args = list(freq = 48, func = mean),
-                             normalise = TRUE, func_norm = norm_z)
-dim(data_seasprof)
-
-res_km <- kmeans(data_seasprof, 3, nstart = 10)
-
-
-
-
-# prepare data for plotting
-data_plot <- melt(data.table(ID = 1:nrow(data_seasprof),
-                             class = res_km$cluster,
-                             data_seasprof),
-                  id.vars = c("ID", "class"),
-                  variable.name = "Time",
-                  variable.factor = FALSE
-)
-
-data_plot[, Time := as.integer(gsub("V", "", Time))]
-
-# prepare centroids
-centers <- melt(data.table(ID = 1:nrow(res_km$centers),
-                           class = 1:nrow(res_km$centers),
-                           res_km$centers),
-                id.vars = c("ID", "class"),
-                variable.name = "Time",
-                variable.factor = FALSE
-)
-
-centers[, Time := as.integer(gsub("V", "", Time))]
-
-# plot the results
-ggplot(data_plot, aes(Time, value, group = ID)) +
-  facet_wrap(~class, ncol = 2, scales = "free_y") +
-  geom_line(color = "grey10", alpha = 0.65) +
-  geom_line(data = centers, aes(Time, value), color = "firebrick1", alpha = 0.80, size = 1.2) +
-  labs(x = "Time", y = "Load (normalised)") +
-  theme_bw()
-
 
 
 
@@ -55,7 +10,7 @@ ggplot(data_plot, aes(Time, value, group = ID)) +
 change2 <- change %>%
   dcast(ISO_SOV1 ~ month, value.var=c("per"))
 
-change3 <- as.matrix(change2[, 2:7])  
+change3 <- as.matrix(change2[, 2:8])  
 
 res_km <- kmeans(change3, 5, nstart = 10)
 

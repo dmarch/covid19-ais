@@ -50,9 +50,16 @@ data <- data %>%
   filter(TERRITORY1 == SOVEREIGN1)
 
 # filter by ship type
-vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
+vars <- c("COUNT",  "CARGO", "TANKER","PASSENGER", "FISHING","OTHER")
 
-jvar <- vars[1]
+# create list to append all models
+model_list <- list()
+change_list <- list()
+
+for(j in 1:length(vars)){
+  
+
+jvar <- vars[j]
 jdata <- filter(data, var == jvar)
 
 # Summary statistics
@@ -72,7 +79,7 @@ select_countries <- sdata %>%
   group_by(ISO_SOV1, TERRITORY1) %>%
   filter(ncells > 3) %>%
   summarize(n_months = n()) %>%
-  filter(n_months == 12)
+  filter(n_months == 14)
 
 # filter dataset per selected countries
 jdata <- jdata %>% filter(ISO_SOV1 %in% select_countries$ISO_SOV1)
@@ -85,7 +92,8 @@ change <- sdata %>%
   rename(dens2019 = `2019`, dens2020 = `2020`) %>%
   mutate(delta = dens2020 - dens2019,
          per = 100*(delta/dens2019),
-         date = as.Date(paste(2020, month, 1, sep="-")))
+         date = as.Date(paste(2020, month, 1, sep="-")),
+         var = jvar)
 
 
 #---------------------------------------------
@@ -139,7 +147,6 @@ p2 <- ggplot(change, aes(x = date)) +
 # export multi-panel plot
 out_file <- paste0(output_data, "/", jvar, "_eez_profiles_per.png")
 ggsave(out_file, p2, width=12, height=10, units = "cm")
-
 
 
 # individual country profiles
@@ -249,6 +256,109 @@ jdata <- jdata %>%
   mutate(covid = ifelse(SiAvg > 25, "after", "before"))
 
 
+# append change df to list
+change_list[[j]] <- change
+
+
+#---------------------------------------------
+# Model delta
+#---------------------------------------------
+# change from baseline as a dependent variable in mixed models, specifically mixed models for repeat measurements (MMRM).
+
+# model
+m1 <- lmer(per ~ SiAvg*income + (1|region/ISO_SOV1), data = change)
+
+# append model to list
+model_list[[j]] <- m1
+}
+
+
+#----------------------------------------------------------------------
+# Summary table for LMM
+#----------------------------------------------------------------------
+out_file <- paste0(output_data, "/", jvar, "_model.doc")
+out_file <- paste0(output_data, "/model.doc")
+
+tab_model(m1, p.val = "kr", show.df = FALSE, show.icc = FALSE, show.re.var = FALSE, file=out_file)
+tab_model(model_list[[1]], p.val = "kr", show.df = FALSE, show.icc = FALSE, show.re.var = FALSE, file=out_file)
+
+
+tab_model(model_list,
+          p.val = "kr",
+          collapse.ci = TRUE,
+          show.df = FALSE,
+          show.icc = FALSE,
+          show.re.var = TRUE,
+          p.style = "stars",
+          string.ci = "Conf. Int (95%)",
+          string.est = "Estimates (Conf. Int 95%)",
+          dv.labels = c("All vessels", "Cargo", "Tanker", "Passenger", "Fishing", "Other"),
+          file=out_file)
+
+
+
+#----------------------------------------------------------------------
+# K-means
+#----------------------------------------------------------------------
+
+# combine all change dataframe
+change_all <- rbindlist(change_list)
+
+change_cast <- change_all %>%
+  dcast(ISO_SOV1 + var ~ month, value.var=c("delta"))
+
+# filter rows with NA
+change_cast <- change_cast %>% filter(!is.na(`7`))
+
+# convert to matrix
+change_mat <- as.matrix(change_cast[, 3:9])  
+
+# k-means
+res_km <- kmeans(change_mat, 6, nstart = 10)
+
+# assign class
+change_cast$class <- as.character(res_km$cluster)
+
+# combine into original format
+change_all <- change_all %>%
+  left_join(dplyr::select(change_cast, ISO_SOV1, var, class), by=c("ISO_SOV1", "var")) %>%
+  filter(!is.na(class))
+
+# prepare centroids
+centers <- melt(data.table(ID = 1:nrow(res_km$centers),
+                           class = as.character(1:nrow(res_km$centers)),
+                           res_km$centers),
+                id.vars = c("ID", "class"),
+                variable.name = "Time",
+                variable.factor = FALSE
+)
+centers[, Time := as.integer(gsub("V", "", Time))]
+
+
+
+# plot the results
+#http://ofdataandscience.blogspot.com/2013/03/capital-bikeshare-time-series-clustering.html
+change_all$grp <- paste(change_all$ISO_SOV1, change_all$var, sep="_")
+
+ggplot(change_all) +
+  geom_line(aes(month, delta, group = grp, colour=class),  size=0.7, alpha = 0.5) +
+  geom_line(data = centers, aes(Time, value), alpha = 0.80, colour="black", size = 1) +
+  scale_color_brewer(palette="Set2") +
+  geom_hline(yintercept = 0, linetype="dotted") +
+  labs(x = "Month", y = "Relative change (%)") +
+  #ylim(c(-50,50))+
+  #facet_wrap(var ~ class, ncol = 3, scales="free")+
+  facet_wrap(. ~ class, ncol = 2, scales="free")+
+  theme_article()
+
+
+
+
+
+
+
+
+
 
 #---------------------------------------------
 # Model
@@ -344,21 +454,6 @@ grid.arrange(pdp1, pdp2, pdp3, ncol = 3)
 
 
 
-#---------------------------------------------
-# Model al grid level
-#---------------------------------------------
-
-jdata2$month <- month(jdata2$date)
-m1 <- glmer(data=jdata2, vessels ~ covid * month + (1|ISO_SOV1/idcell), offset=log(eez_km2), family = poisson(link = "log"))
-
-# rescale variables?
-
-
-# refs
-# https://www.dallasfed.org/~/media/documents/institute/wpapers/2020/0384.pdf
-# https://www.nature.com/articles/s41598-020-75848-2   3d plots
-
-
 
 
 #---------------------------------------------
@@ -366,17 +461,30 @@ m1 <- glmer(data=jdata2, vessels ~ covid * month + (1|ISO_SOV1/idcell), offset=l
 #---------------------------------------------
 # change from baseline as a dependent variable in mixed models, specifically mixed models for repeat measurements (MMRM).
 
-change$perT <- asin(sqrt(change$per))
+#change$perT <- asin(sqrt(change$per))
 
-m1 <- lmer(per ~ SiAvg + income + (1|region/ISO_SOV1), data = change)
+m1 <- lmer(per ~ SiAvg*income + (1|region/ISO_SOV1), data = change)
 p <- ggpredict(m1, terms = c("SiAvg"))
+p <- ggpredict(m1, terms = c("SiAvg", "month"))
+p <- ggpredict(m1, terms = c("SiAvg", "income"))
+
 p <- ggpredict(m1, terms = c("income"))
-p <- ggpredict(m1, terms = c("region"))
+p <- ggpredict(m1, terms = c("ISO_SOV1"))
 plot(p)
+
+# table
+out_file <- paste0(output_data, "/", jvar, "_model.doc")
+tab_model(m1, p.val = "kr", show.df = FALSE, show.icc = FALSE, show.re.var = FALSE, file=out_file)
+tab_model(model_list)
 
 
 # Check residuals
+plot(m1)
 Plot.Model.F.Linearity<-plot(resid(m1), change$per) 
+
+
+## Caterpillar plot
+lattice::dotplot(ranef(m1, condVar = TRUE))
 
 
 # confidence intervals
@@ -384,7 +492,7 @@ confint(m1)
 
 rr1 <- ranef(m1, condVar = TRUE)
 
-dotplot(rr1$ISO_SOV1$SiAvg)
+dotplot(rr1$`ISO_SOV1:region`)
 
 dd <- as.data.frame(rr1$ISO_SOV1)
 
@@ -406,19 +514,28 @@ predict_with_re <- predict(m1)
 
 
 re = ranef(m1)
-qplot(x = re$region, geom = 'density', xlim = c(-3, 3))
+qplot(x = re$region, geom = 'density')
 
 
-# random slope
-m1 <- lmer(delta ~ month + income + (1 + ISO_SOV1), data = change)
 
 
-m1 <- lmer(delta ~ month + income + (1|ISO_SOV1) + (0 + month|ISO_SOV1), data = change)
 
 
-+ (0 + x|groups)
 
-# add month
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -431,14 +548,19 @@ change$dens2020log <- log(change$dens2020)
 change$dens2019log <- log(change$dens2019)
 
 m1 <- lmer(dens2020log ~ dens2019log + SiAvg + income + (SiAvg|ISO_SOV1), data = change)
+m1 <- lmer(dens2020log ~ dens2019log + SiAvg*income + (1|region/ISO_SOV1), data = change)
+
+
 p <- ggpredict(m1, terms = c("SiAvg"))
 p <- ggpredict(m1, terms = c("ISO_SOV1"))
-p <- ggpredict(m1, terms = c("income"))
+p <- ggpredict(m1, terms = c("SiAvg", "income"))
+p <- ggpredict(m1, terms = c("SiAvg", "income"))
+
 plot(p)
 
 
-p <- ggpredict(m1, terms = c("SiAvg", "ISO_SOV1"), type="re")
-%>% plot()
+p <- ggpredict(m1, terms = c("SiAvg", "income"), type="re")
+plot(p)
 
 # Check residuals
 plot(m1)

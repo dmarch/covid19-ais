@@ -116,7 +116,7 @@ for(j in 1:length(unique_months)){  # 14 months to analyse
     data <- filter(data, mmsi >= 200000000, mmsi < 800000000)
     
     # exclude anchored or moored vessels
-    # data <- filter(data, !status %in% c(1,5), speed >  1.852)
+    data <- filter(data, !status %in% c(1,5), speed >  1.852)
     
     # exclude some types
     # exclude_type_summary <- c("", "NULL", "Wing in Grnd")

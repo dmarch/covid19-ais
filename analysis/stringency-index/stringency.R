@@ -21,7 +21,7 @@ output_data <- "data/out/stringency"
 if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 
 ## set last date to process
-last_date <- "2020-06-30"
+last_date <- "2020-07-31"
 
 
 #--------------------------------------------------------------------------------
@@ -111,7 +111,7 @@ p4 <- ggplot(data_sub, aes(Date, CountryName, color = si_group, group=rev(Countr
 
 # export plot
 out_file <- paste0(output_plot, "/country_timeline.png")
-ggsave(out_file, p4, width=13, height=8, units = "cm")
+ggsave(out_file, p4, width=11, height=8, units = "cm")
 
 
 # Heat map
@@ -194,8 +194,8 @@ p5 <- ggplot(data_sub, aes(x = Date, y = CountryName, fill = si_group))+
       plot.title=element_text(colour=textcol,hjust=0,size=14,face="bold"))
 
 # export figure
-out_file <- paste0(output_plot, "/heatmap.png")
-ggsave(out_file, p5, width=13, height=8, units = "cm")
+#out_file <- paste0(output_plot, "/heatmap.png")
+#ggsave(out_file, p5, width=13, height=8, units = "cm")
 
 
 
@@ -234,8 +234,8 @@ ggsave(out_file, p, width=10, height=8, units = "cm")
 # Calculate average and sd
 april <- data %>%
   filter(Date >= as.Date("2020-04-01") & Date < as.Date("2020-04-30"))
-mean(april$StringencyIndex, na.rm=TRUE)  # 79.7002
-sd(april$StringencyIndex, na.rm=TRUE)  # 15.34479
+mean(april$StringencyIndex, na.rm=TRUE)  # 80.00187
+sd(april$StringencyIndex, na.rm=TRUE)  # 14.78759
 
 
 #--------------------------------------------------------------------------------
@@ -243,34 +243,34 @@ sd(april$StringencyIndex, na.rm=TRUE)  # 15.34479
 #--------------------------------------------------------------------------------
 
 # import country map
-data("World")
-
-# Calculate median
-avgGlobal <- data %>%
-  group_by(CountryName, CountryCode) %>%
-  filter(Month == 4) %>%
-  summarize(StringencyIndexAvg = median(StringencyIndex),
-            StringencyIndexSd = sd(StringencyIndex),
-            StringencyIndexMin = min(StringencyIndex),
-            StringencyIndexMax = max(StringencyIndex))
-
-
-# combine with countries with EEZ by ISO code
-map_data <- left_join(World, avgGlobal, by = c("iso_a3" = "CountryCode"))
-map_data <- map_data %>% filter(name != "Antarctica")
-
-# plot data (average)
-p1 <- tm_shape(map_data) +
-  tm_polygons("StringencyIndexAvg",
-              title=("Stringency Index \nMonthly median (April 2020)"),
-              palette = "YlGnBu", #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
-              border.col = "grey60", 
-              border.alpha = 0.3) +
-  tm_layout(legend.title.size=1)
+# data("World")
+# 
+# # Calculate median
+# avgGlobal <- data %>%
+#   group_by(CountryName, CountryCode) %>%
+#   filter(Month == 4) %>%
+#   summarize(StringencyIndexAvg = median(StringencyIndex),
+#             StringencyIndexSd = sd(StringencyIndex),
+#             StringencyIndexMin = min(StringencyIndex),
+#             StringencyIndexMax = max(StringencyIndex))
+# 
+# 
+# # combine with countries with EEZ by ISO code
+# map_data <- left_join(World, avgGlobal, by = c("iso_a3" = "CountryCode"))
+# map_data <- map_data %>% filter(name != "Antarctica")
+# 
+# # plot data (average)
+# p1 <- tm_shape(map_data) +
+#   tm_polygons("StringencyIndexAvg",
+#               title=("Stringency Index \nMonthly median (April 2020)"),
+#               palette = "YlGnBu", #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
+#               border.col = "grey60", 
+#               border.alpha = 0.3) +
+#   tm_layout(legend.title.size=1)
 
 # export plot
-out_file <- paste0(output_plot, "/april_global_map_med.png")
-tmap_save(tm = p1, filename = out_file, width=22, height=10, units = "cm")
+#out_file <- paste0(output_plot, "/april_global_map_med.png")
+#tmap_save(tm = p1, filename = out_file, width=22, height=10, units = "cm")
 
 
 
@@ -286,7 +286,7 @@ data("World")
 #data(countriesHigh, package = "rworldxtra", envir = environment())
 #World <- st_as_sf(countriesHigh)
 
-for(i in 1:6){
+for(i in 1:7){
   
   # Calculate median
   avgGlobal <- data %>%
@@ -337,7 +337,7 @@ p1 <- tm_shape(box) +
               border.col = "grey10", 
               border.alpha = 0.3,
               legend.show = TRUE,
-              legend.is.portrait = F) +
+              legend.is.portrait = T) +
   tm_layout(#title = paste(month.abb[i], 2020), title.size = 2, title.position = c("center","bottom"),
             frame = F,
             legend.show=TRUE,

@@ -32,11 +32,11 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
 # set dates
 dates_post <- c(
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 dates_pre <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 
@@ -80,7 +80,7 @@ for (j in 1:length(vars)){
   
   # Calculate average and SD
   delta_u <- mean(s, na.rm=TRUE)
-  #delta_sd <- calc(s, fun=sd, na.rm=TRUE)
+  delta_sd <- calc(s, fun=sd, na.rm=TRUE)
   
   
   # Count percentage of negative values
@@ -93,18 +93,28 @@ for (j in 1:length(vars)){
   # Export data
   writeRaster(delta_sum, paste0(out_dir, sprintf("%s_delta_sum.tif", jvar)), overwrite=TRUE)
   writeRaster(delta_u, paste0(out_dir, sprintf("%s_delta_u.tif", jvar)), overwrite=TRUE)
-  #writeRaster(delta_sd, paste0(out_dir, sprintf("%s_delta_sd.tif", jvar)), overwrite=TRUE)
+  writeRaster(delta_sd, paste0(out_dir, sprintf("%s_delta_sd.tif", jvar)), overwrite=TRUE)
   
   #### Plot accumulated
   pngfile <- paste0(out_dir, sprintf("%s_delta_sum.png", jvar))
   png(pngfile, width=3000, height=1750, res=300)
-  plotDelta(delta_sum, main = sprintf("Accumulated Delta Jan-Jun 2020 (%s)", jvar))
+  plotDelta(delta_sum, main = sprintf("Accumulated Delta Jan-Jul 2020 (%s)", jvar))
   dev.off()
   
   #### Plot average
   pngfile <- paste0(out_dir, sprintf("%s_delta_avg.png", jvar))
   png(pngfile, width=3000, height=1750, res=300)
-  plotDelta(delta_u, main = sprintf("Average Delta Jan-Jun 2020 (%s)", jvar))
+  plotDelta(delta_u, main = sprintf("Average Delta Jan-Jul 2020 (%s)", jvar))
+  dev.off()
+  
+  #### Plot sd
+  minval <- minValue(delta_sd)
+  maxval <- maxValue(delta_sd)
+  pngfile <- paste0(out_dir, sprintf("%s_delta_sd.png", jvar))
+  png(pngfile, width=3000, height=1750, res=300)
+  plotDensMol(r = delta_sd, zlim = c(minval, maxval), mollT = FALSE, logT = sqrt,
+              col = rev(brewer.spectral(101)), main = sprintf("SD %s (Jan-Jul)", jvar),
+              axis_at = c(minval, maxval), axis_labels = c(round(minval,3), round(maxval,3)))
   dev.off()
   
   #### Plot percentage of negative values
@@ -142,7 +152,8 @@ data$month[which(data$month == "20200301")] <- "Mar"
 data$month[which(data$month == "20200401")] <- "Apr"
 data$month[which(data$month == "20200501")] <- "May"
 data$month[which(data$month == "20200601")] <- "Jun"
-data$month <- factor(data$month, levels=c("Jan", "Feb", "Mar", "Apr", "May", "Jun"))
+data$month[which(data$month == "20200701")] <- "Jul"
+data$month <- factor(data$month, levels=c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"))
 
 
 
@@ -216,7 +227,7 @@ data_cnt <- data %>%
             positive = (pos/total),
             negative = (neg/total))%>%#,
             #nochange = (noch/total)) %>%
-  select(-c("pos", "neg", "total"))
+  dplyr::select(-c("pos", "neg", "total"))
 
 # convert from wide to long format
 long <- melt(data_cnt, id.vars=c("var", "month"))
@@ -227,9 +238,9 @@ p <- ggplot(filter(long, variable!="nochange"), aes(x = month, y=value, group=va
   geom_line(aes(color=variable), size=1) +
   geom_point(aes(color=variable)) +
   scale_color_manual(labels = c("Increase", "Decrease"), values=c("#9ecae1", "#e34a33"))+
-  facet_wrap(var~.)+
+  facet_wrap(var~., ncol=3)+
   scale_y_continuous(labels = scales::percent)+
-  xlab("") + ylab("Ratio of grid cells with increases and decreases") +
+  xlab("") + ylab("Proportion of grid cells") +
   theme_article() +
   theme(legend.position = c(0.93, 0.95), legend.title = element_blank()) +
   guides(fill = FALSE)
