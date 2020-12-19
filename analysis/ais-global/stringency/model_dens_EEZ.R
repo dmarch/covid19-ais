@@ -26,6 +26,7 @@ library(xlsx)
 library(merTools)
 library(HLMdiag)
 library(DHARMa)
+library(sf)
 #library(mixedup) # remotes::install_github('m-clark/mixedup')
 
 
@@ -39,15 +40,27 @@ if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 # Import and prepare density data 
 #---------------------------------------------
 # import data
+# density data at grid cell level
 data <- read.csv("data/out/ais-global/eez/eez_ais_density.csv")
+
+
+# import EEZ
+# source: marineregions
+eez <- st_read("data/input/marine_regions/World_EEZ_v11_20191118_gpkg/eez_v11_covid.gpkg")
+eez <- eez %>%
+  mutate(TERRITORY1 = as.character(TERRITORY1),
+         SOVEREIGN1 = as.character(SOVEREIGN1)) %>%
+  filter(!POL_TYPE %in% c("Joint regime"), # remove joint regimes
+         TERRITORY1!="Antarctica",  # remove Antarctica
+         TERRITORY1 == SOVEREIGN1,  # select main territories (excludes overseas)
+         AREA_KM2>(769*3)) # remove EEZ smaller than 3 grid sizes at equator
 
 # select EEZ:
 # main territories (TERRITORY1 name = SOVEREIGN1 name)
 data <- data %>%
-  mutate(TERRITORY1 = as.character(TERRITORY1),
-         SOVEREIGN1 = as.character(SOVEREIGN1),
-         date = parse_date_time(date, "Ymd")) %>%
-  filter(TERRITORY1 == SOVEREIGN1)
+  mutate(date = parse_date_time(date, "Ymd")) %>%
+  filter(MRGID %in% eez$MRGID)
+
 
 # filter by ship type
 vars <- c("COUNT",  "CARGO", "TANKER","PASSENGER", "FISHING","OTHER")
@@ -56,9 +69,15 @@ vars <- c("COUNT",  "CARGO", "TANKER","PASSENGER", "FISHING","OTHER")
 model_list <- list()
 change_list <- list()
 
+# import country map
+library(tmap)
+data("World")
+
+
+## LOOP FOR EACH SHIP CATEGORY
 for(j in 1:length(vars)){
   
-
+# select data for category (j)
 jvar <- vars[j]
 jdata <- filter(data, var == jvar)
 
@@ -270,6 +289,49 @@ m1 <- lmer(per ~ SiAvg*income + (1|region/ISO_SOV1), data = change)
 
 # append model to list
 model_list[[j]] <- m1
+
+
+#---------------------------------------------
+# Residuals (plot map and moran)
+#---------------------------------------------
+
+# # get residuals
+# change$resid <- residuals(m1)
+# 
+# # summarize residuals per country
+# resid_eez <- change %>%
+#         group_by(ISO_SOV1) %>%
+#         summarize(resid_avg = mean(resid),
+#                   resid_sd = sd(resid))
+#         
+# # plot average
+# 
+# 
+# # combine with countries with EEZ by ISO code
+# map_data <- left_join(World, resid_eez, by = c("iso_a3" = "ISO_SOV1"))
+# map_data <- left_join(World, change, by = c("iso_a3" = "ISO_SOV1"))
+# map_data <- map_data %>% filter(name != "Antarctica")
+# 
+# # plot data (average)
+# library(pals)
+# p1 <- tm_shape(map_data) +
+#   tm_polygons("delta",
+#               #style="quantile",
+#               title=("Residuals (average)"),
+#               #palette = "YlGnBu", #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
+#               border.col = "grey60", 
+#               border.alpha = 0.3) +
+#   tm_layout(legend.title.size=1) +
+#   tm_facets(by="month")
+# 
+# p2 <- tm_shape(map_data) +
+#   tm_polygons("resid_sd",
+#               title=("Residuals (sd)"),
+#               palette = brewer.ylgnbu(10), #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
+#               border.col = "grey60", 
+#               border.alpha = 0.3) +
+#   tm_layout(legend.title.size=1)
+
 }
 
 
@@ -298,8 +360,39 @@ tab_model(model_list,
 
 
 #----------------------------------------------------------------------
-# K-means
+# Plots for LMM
 #----------------------------------------------------------------------
+
+for(j in 1:length(vars)){
+  
+  # extract model
+  m <- model_list[[j]]
+
+  # create interaction plot
+  p <- ggpredict(m, terms = c("SiAvg", "income"))
+  
+  # output file
+  jvar <- vars[j]
+  p <- plot(p, facet = TRUE) +
+    labs(x="Stringency Index",
+         y="Relative change (%)",
+         title="") +
+    theme_article()
+  
+  #
+  out_file <- paste0(output_data, "/", jvar, "_int.png")
+  ggsave(out_file, p, width=10, height=10, units = "cm")
+}
+
+
+
+
+#----------------------------------------------------------------------
+# K-means (per country)
+#----------------------------------------------------------------------
+
+library(factoextra)
+library(NbClust)
 
 # combine all change dataframe
 change_all <- rbindlist(change_list)
@@ -313,8 +406,57 @@ change_cast <- change_cast %>% filter(!is.na(`7`))
 # convert to matrix
 change_mat <- as.matrix(change_cast[, 3:9])  
 
+
+#### Select number of clusters -----------
+
+# Elbow method
+fviz_nbclust(change_mat, kmeans, method = "wss") +
+  geom_vline(xintercept = 4, linetype = 2)+
+  labs(subtitle = "Elbow method")
+
+# Silhouette method
+fviz_nbclust(change_mat, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+
+# Gap statistic
+# nboot = 50 to keep the function speedy. 
+# recommended value: nboot= 500 for your analysis.
+# Use verbose = FALSE to hide computing progression.
+set.seed(123)
+fviz_nbclust(change_mat, kmeans, nstart = 25,  method = "gap_stat", nboot = 50)+
+  labs(subtitle = "Gap statistic method")
+
+NbClust(data = change_mat, diss = NULL, distance = "euclidean",
+        min.nc = 2, max.nc = 15, method = "kmeans")
+
+# Initialise some variables
+kRange <- seq(from=2, to=10, by=1)
+intra <- rep(NA, length(kRange)) # intracluster sum-of-squares
+inter <- rep(NA, length(kRange)) # intercluster sum-of-squares
+
+# Loop across desired range of ks
+for (k in kRange) {
+  mdl <- kmeans(x=change_mat, centers=k)
+  intra[k-1] <- mdl$tot.withinss # it’s (k-1) because k starts from 2
+  inter[k-1] <- mdl$betweenss 
+}
+
+# Plot inter/intercluster sum-of-squares as a function of $k$
+yMin <- min(c(intra , inter)) 
+yMax <- max(c(intra , inter))
+plot(kRange, inter, type="o", pch=1, col="blue", lwd=3, lty=1, 
+     ylim=c(yMin, yMax), xlab="k", ylab='Sum-of-squares')
+points(kRange, intra, type="o", pch=1, col="red", lwd=3)
+legend("right", c("inter-cluster", "intra-cluster"), 
+       bty="n", col=c("blue", "red"), pch=1, lwd=3, lty=1)
+
+#### Select number of clusters -----------
+
+
+
+
 # k-means
-res_km <- kmeans(change_mat, 6, nstart = 10)
+res_km <- kmeans(change_mat, 5, nstart = 10)
 
 # assign class
 change_cast$class <- as.character(res_km$cluster)
@@ -347,17 +489,50 @@ ggplot(change_all) +
   geom_hline(yintercept = 0, linetype="dotted") +
   labs(x = "Month", y = "Relative change (%)") +
   #ylim(c(-50,50))+
-  #facet_wrap(var ~ class, ncol = 3, scales="free")+
+  #facet_wrap(var ~ class, ncol = 6, scales="free")+
   facet_wrap(. ~ class, ncol = 2, scales="free")+
   theme_article()
 
 
+#----------------------------------------------------------------------
+# dtwclust (per cell)
+#----------------------------------------------------------------------
+
+library(dtwclust)
+
+hc_sbd <- tsclust(change_mat, type = "h", k = 20L,
+                  preproc = zscore, seed = 899,
+                  distance = "sbd", centroid = shape_extraction,
+                  control = hierarchical_control(method = "average"))
+plot(hc_sbd)
 
 
+plot(hc_sbd, type = "sc")
 
 
+#----------------------------------------------------------------------
+# K-means (per cell)
+#----------------------------------------------------------------------
+
+data2 <- data
+
+data2$month <- month(data2$date)
+data2$year <- year(data2$date)
+
+# calculate change
+change <- data2 %>%
+  dcast(idcell + var + month ~ year, value.var=c("vessels_km2")) %>%
+  rename(dens2019 = `2019`, dens2020 = `2020`) %>%
+  mutate(delta = dens2020 - dens2019,
+         per = 100*(delta/dens2019),
+         date = as.Date(paste(2020, month, 1, sep="-")))
 
 
+change_cast <- change %>%
+  dcast(idcell + var ~ month, value.var=c("per"))
+
+# filter rows with NA
+change_cast <- change_cast %>% filter(!is.na(`7`))
 
 
 #---------------------------------------------

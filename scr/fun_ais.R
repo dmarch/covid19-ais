@@ -315,6 +315,69 @@ plotDelta <- function(delta, main = sprintf("Accumulated Delta Jan-Jun 2020 (%s)
 }
 #-----------------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------------
+# plotDelta       plot delta map in mollweide
+#-----------------------------------------------------------------------------------
+plotDelta2 <- function(delta, percentile = 0.99, main = sprintf("Accumulated Delta Jan-Jun 2020 (%s)", jvar)){
+  
+  # get min and max values
+  mindelta <- minValue(delta)
+  maxdelta <- maxValue(delta)
+  
+  # get 99th percentiles
+  if (is.null(percentile)){
+    qmin <- mindelta
+    qmax <- maxdelta
+    
+    # define regular interval
+    m <- max(abs(qmin), qmax)
+    intervals <- m/50
+    
+  } else {
+    qmin <- quantile(delta, 1-percentile)
+    qmax <- quantile(delta, percentile)
+    
+    # define regular interval
+    m <- max(abs(qmin), qmax)
+    qmax <- m
+    qmin <- m*(-1)
+    delta[delta>qmax]<-qmax
+    delta[delta<qmin]<-qmin
+    
+    # define regular interval
+    intervals <- m/50
+    
+  }
+  
+  # get breaks
+  # we consider the case where delta values may result in positive values
+  # (e.g. 2020-01)
+  if (qmin >= 0) breaks <- seq(qmin, qmax, by = intervals)
+  if (qmin < 0){
+    low_breaks <- c(seq(qmin-intervals, 0-intervals, by=intervals))
+    high_breaks <- c(seq(0, qmax+intervals, by=intervals))
+    breaks <- c(low_breaks, high_breaks)
+  }
+  
+  # diverging assymetric color ramp
+  high <- brewer.blues(4)
+  low <-  rev(brewer.reds(4))
+  if (qmin >= 0) cols <- high
+  if (qmin < 0){
+    low_cols <- colorRampPalette(low)(length(low_breaks)-1)
+    high_cols <- colorRampPalette(high)(length(high_breaks)-1)
+    cols <- c(low_cols,"#f7f7f7","#f7f7f7", high_cols)
+  }
+  
+  # figure plot
+  plotDensMol(r = delta, zlim = c(qmin, qmax), mollT = FALSE, logT = FALSE, breaks=breaks,
+              col = cols, main = main,
+              axis_at = c(qmin, 0,qmax),
+              axis_labels = c(paste("<",round(qmin,2)), 0, paste(">",round(qmax,2))),
+              legend_horizontal=TRUE)
+}
+#-----------------------------------------------------------------------------------
+
 
 #-----------------------------------------------------------------------------------
 # plotDensMol       plot density map in mollweide
@@ -388,7 +451,7 @@ plotDensMol2 <- function(r, col, main, legend_horizontal = TRUE){
   plot(countriesHigh, col="grey80", border="grey80", add=TRUE)  # land mask
   plot(box, border="grey60", add=TRUE)  # box
   plot(r, zlim =  zlim, legend.only=TRUE, horizontal = legend_horizontal, col=col, legend.width=1, legend.shrink=0.4,
-       axis.args=list(at=axis_at, labels=parse(text=axis_labels), cex.axis=1.2))
+       axis.args=list(at=axis_at, labels=parse(text=axis_labels), cex.axis=1.8))
   # legend.args=list(text=expression(Traffic~density~(vessels~km^-2)),
   #                  side=1, font=2, line=2, cex=1.2))
 }

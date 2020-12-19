@@ -32,11 +32,11 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
 # set dates
 dates_post <- c(
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 dates_pre <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 
@@ -98,13 +98,13 @@ for (j in 1:length(vars)){
   #### Plot accumulated
   pngfile <- paste0(out_dir, sprintf("%s_delta_sum.png", jvar))
   png(pngfile, width=3000, height=1750, res=300)
-  plotDelta(delta_sum, main = sprintf("Accumulated Delta Jan-Jul 2020 (%s)", jvar))
+  plotDelta(delta_sum, main = sprintf("Accumulated Delta Jan-June 2020 (%s)", jvar))
   dev.off()
   
   #### Plot average
   pngfile <- paste0(out_dir, sprintf("%s_delta_avg.png", jvar))
   png(pngfile, width=3000, height=1750, res=300)
-  plotDelta(delta_u, main = sprintf("Average Delta Jan-Jul 2020 (%s)", jvar))
+  plotDelta(delta_u, main = sprintf("Average Delta Jan-June 2020 (%s)", jvar))
   dev.off()
   
   #### Plot sd
@@ -113,7 +113,7 @@ for (j in 1:length(vars)){
   pngfile <- paste0(out_dir, sprintf("%s_delta_sd.png", jvar))
   png(pngfile, width=3000, height=1750, res=300)
   plotDensMol(r = delta_sd, zlim = c(minval, maxval), mollT = FALSE, logT = sqrt,
-              col = rev(brewer.spectral(101)), main = sprintf("SD %s (Jan-Jul)", jvar),
+              col = rev(brewer.spectral(101)), main = sprintf("SD %s (Jan-June)", jvar),
               axis_at = c(minval, maxval), axis_labels = c(round(minval,3), round(maxval,3)))
   dev.off()
   
@@ -133,6 +133,27 @@ for (j in 1:length(vars)){
   # vals_decrease <- abs(vals[which(sign_vals == -1)])
   # hist <- data.frame(var = jvar, decrease = vals_decrease)
   # histo_list[[j]] <- hist
+  
+  
+  # #### Kendall ----------------------------------
+  # library(spatialEco)
+  # # find locations without missing data
+  # s_count <- s/s
+  # s_count <- sum(s_count, na.rm=TRUE)
+  # s_count[s_count<5] <- NA
+  # s_count <- s_count/s_count
+  # s <- mask(s, s_count)
+  # 
+  # # kendall
+  # k <- raster.kendall(s, p.value=TRUE, z.value=TRUE, 
+  #                     intercept=TRUE, confidence=TRUE, 
+  #                     tau=TRUE)
+  # 
+  # # keep brick
+  # writeRaster(k, paste0(out_dir, sprintf("%s_delta_kendall.grd", jvar)), overwrite=TRUE)
+  # plotDelta(k$slope, main = sprintf("Kendall - slope (%s)", jvar))
+  # plotDelta(k$tau, main = sprintf("Kendall - tau (%s)", jvar))
+  
 }
 
 # combine data

@@ -19,7 +19,7 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
 # select months to process
 dates <- c(
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
 ) 
 
 # get year and format dates
@@ -50,11 +50,13 @@ for(j in 1:length(vars)){
   s_u <- mean(s, na.rm=TRUE)
   s_sd <- calc(s, fun=sd, na.rm=TRUE)
   s_cv <- s_sd/s_u
+  writeRaster(s_cv, paste0(out_dir, sprintf("%s_%s_dens_cv.tif", year, jvar)), overwrite=TRUE)
+  
 
   # plot average density
   pngfile <- paste0(out_dir, sprintf("%s_%s_dens_avg.png", jvar, year))
   png(pngfile, width=3000, height=1750, res=300)
-  plotDensMol2(r = s_u, col = rev(brewer.spectral(101)), main = sprintf("Average density %s (Jan-Jul %s)", jvar, year))
+  plotDensMol2(r = s_u, col = rev(brewer.spectral(101)), main = sprintf("Average density %s (Jan-Jun %s)", jvar, year))
   dev.off()
   
   # plot coefficient of variation
@@ -63,8 +65,30 @@ for(j in 1:length(vars)){
   pngfile <- paste0(out_dir, sprintf("%s_%s_dens_cv.png", jvar, year))
   png(pngfile, width=3000, height=1750, res=300)
   plotDensMol(r = s_cv, zlim = c(minval, maxval), mollT = FALSE, logT = FALSE,
-              col = rev(brewer.spectral(101)), main = sprintf("Coefficient of variation %s (Jan-Jul %s)", jvar, year),
+              col = rev(brewer.spectral(101)), main = sprintf("Coefficient of variation %s (Jan-Jun %s)", jvar, year),
               axis_at = c(minval, maxval), axis_labels = c(round(minval,3), round(maxval,3)))
   dev.off()
 }  
 
+
+
+# ### Compare CV between 2019 and 2020
+# 
+# for(j in 1:length(vars)){
+# 
+#   jvar <- vars[j]
+#   
+#   # import both CV
+#   r1 <- raster(paste0(out_dir, sprintf("%s_%s_dens_cv.tif", 2019, jvar)))
+#   r2 <- raster(paste0(out_dir, sprintf("%s_%s_dens_cv.tif", 2020, jvar)))
+#   
+#   # calculate difference
+#   delta_cv <- r2 - r1
+#   #per <- delta_cv/r1
+#   
+#   # plot
+#   pngfile <- paste0(out_dir, sprintf("%s_delta_cv.png", jvar))
+#   png(pngfile, width=3000, height=1750, res=300)
+#   plotDelta2(delta_cv, percentile = 0.99, main = sprintf("CV 2020-2019 (%s)", jvar))
+#   dev.off()
+# }

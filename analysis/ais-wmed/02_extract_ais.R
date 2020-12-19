@@ -54,7 +54,7 @@ eez_24nm_sf <- st_read("data/out/ais-wmed/eez_24nm_eu.gpkg") %>%
 
 # Set start and end date of data inspection
 sDate <- as.Date("2016-01-01")
-eDate <- as.Date("2020-10-31") # "2020-06-04"
+eDate <- as.Date("2020-12-12") # "2020-06-04"
 dates <- seq.Date(sDate, eDate, "1 day")
 
 # Check dates with data

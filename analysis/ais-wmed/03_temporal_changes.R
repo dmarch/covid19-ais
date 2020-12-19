@@ -38,6 +38,19 @@ if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 
 
 
+
+#-----------------------------------------------------------------
+# Import stringency index values
+#-----------------------------------------------------------------
+
+# import data
+# see stringency.R
+si <- read.csv("data/out/stringency/stringency.csv")
+
+# filter data for countries from study area
+si <- filter(si, CountryName %in% c("Spain", "France", "Italy"))
+si$Date <- ymd(si$Date)
+
 #-----------------------------------------------------------------
 # Calculate averages
 #-----------------------------------------------------------------
@@ -63,6 +76,9 @@ mave$date2020 <- as.Date(as.numeric(mave$doy)-1, origin = "2020-01-01")
 # reorder vessel categories for plots
 mave$type <- factor(mave$type, levels=c("All", "Cargo", "Tanker", "Passenger", "Fishing", "Recreational", "Other"))
 
+# filter by last data
+mave <- filter(mave, date <= as.Date("2020-11-30"))
+
 
 
 #-----------------------------------------------------------------
@@ -78,7 +94,6 @@ rib <- mave_sel %>%
   filter(date2020 <= max(date)) %>%
   summarize(ymin = min(vessels_ma7),
             ymax = max(vessels_ma7))
-
 
 # plot all vessels
 p1 <- ggplot(filter(mave_sel, type=="All"), aes(x = date2020)) + # removed group=year
@@ -127,7 +142,6 @@ ggsave(out_file, p, width=20, height=20, units = "cm")
 
 
 
-
 #-----------------------------------------------------------------
 # 2. Calculate percentage change in relation to 2019
 #-----------------------------------------------------------------
@@ -142,7 +156,7 @@ change <- mave_sel %>%
 
 # calculate maximum decline per sector
 max_decline <- change %>%
-  filter(date2020 > as.Date("2020-03-11")) %>%
+  filter(date2020 >= as.Date("2020-03-11"), date2020 <= as.Date("2020-06-22")) %>%
   group_by(type) %>%
   summarize(max_drop = min(change_per, na.rm=TRUE),
             median_drop = median(change_per, na.rm=TRUE),
@@ -158,109 +172,136 @@ max_decline <- change %>%
 # 2.1. Generate table
 #-----------------------------------------------------------------
 
-# set names for categories
-vars_names <- c("Cargo", "Tanker", "Passenger", "Fishing", "Recreational", "Other", "All")
-vars_renames <- c("Cargo", "Tanker", "Passenger", "Fishing", "Recreational", "Other", "All vessels")
-
-# reorder according to types
-max_decline$type <- factor(max_decline$type, levels = vars_names)
-max_decline <- arrange(max_decline, type)
-
-# rename categories
-max_decline$type <- as.character(max_decline$type)
-max_decline$type <- vars_renames
-
-# reorder vessel categories for plots
-max_decline$type <- factor(max_decline$type, levels=c("All vessels", "Cargo", "Tanker", "Passenger", "Fishing", "Recreational", "Other"))
-
-
-# create flextable
-ft <- flextable(max_decline)  # data is a data.frame
-
-# set labels for headers (data.frame columns)
-# now only those labels without complex text. To break lines, use "\n"
-ft <- set_header_labels(ft, type = "Vessel category",
-                        max_drop = "(%)",
-                        date_max = "Date",
-                        last_drop = "(%)",
-                        median_drop = "(%)",
-                        date_last = "Date")
-
-# add rows on top to include groups
-# also include vertical lines to separate groups
-ft <- add_header_row(ft, values = c("", "Maximal", "Median", "Most recent"), colwidths = c(1,2,1,2))
-ft <- theme_booktabs(ft)
-
-# set decimal formats
-ft <- colformat_num(ft, j = c(2,4), digits = 1)
-
-# general configuration of table
-ft <- bold(ft, part = "header") # bold header
-ft <- fontsize(ft, part = "all", size = 11)  # font size
-ft <- set_table_properties(ft, width = 0.4, layout = "autofit")  # autofit to width
-
-# align columns
-ft <- align(ft, i = NULL, j = c(2:5), align = "center", part = "all")  # center columns except vessel category
-
-# export table for Word
-save_as_docx(ft, path = paste0(output_data, "/maxdrop.docx"))
-
-# export as image
-img_file <- paste0(output_data, "/maxdrop.png")
-save_as_image(ft, path = img_file)
+# # set names for categories
+# vars_names <- c("Cargo", "Tanker", "Passenger", "Fishing", "Recreational", "Other", "All")
+# vars_renames <- c("Cargo", "Tanker", "Passenger", "Fishing", "Recreational", "Other", "All vessels")
+# 
+# # reorder according to types
+# max_decline$type <- factor(max_decline$type, levels = vars_names)
+# max_decline <- arrange(max_decline, type)
+# 
+# # rename categories
+# max_decline$type <- as.character(max_decline$type)
+# max_decline$type <- vars_renames
+# 
+# # reorder vessel categories for plots
+# max_decline$type <- factor(max_decline$type, levels=c("All vessels", "Cargo", "Tanker", "Passenger", "Fishing", "Recreational", "Other"))
+# 
+# 
+# # create flextable
+# ft <- flextable(max_decline)  # data is a data.frame
+# 
+# # set labels for headers (data.frame columns)
+# # now only those labels without complex text. To break lines, use "\n"
+# ft <- set_header_labels(ft, type = "Vessel category",
+#                         max_drop = "(%)",
+#                         date_max = "Date",
+#                         last_drop = "(%)",
+#                         median_drop = "(%)",
+#                         date_last = "Date")
+# 
+# # add rows on top to include groups
+# # also include vertical lines to separate groups
+# ft <- add_header_row(ft, values = c("", "Maximal", "Median", "Most recent"), colwidths = c(1,2,1,2))
+# ft <- theme_booktabs(ft)
+# 
+# # set decimal formats
+# ft <- colformat_num(ft, j = c(2,4), digits = 1)
+# 
+# # general configuration of table
+# ft <- bold(ft, part = "header") # bold header
+# ft <- fontsize(ft, part = "all", size = 11)  # font size
+# ft <- set_table_properties(ft, width = 0.4, layout = "autofit")  # autofit to width
+# 
+# # align columns
+# ft <- align(ft, i = NULL, j = c(2:5), align = "center", part = "all")  # center columns except vessel category
+# 
+# # export table for Word
+# save_as_docx(ft, path = paste0(output_data, "/maxdrop.docx"))
+# 
+# # export as image
+# img_file <- paste0(output_data, "/maxdrop.png")
+# save_as_image(ft, path = img_file)
 
 
 #-----------------------------------------------------------------
 # 2.2. Plot changes
 #-----------------------------------------------------------------
 
+
+
+# plot stringency index
+p1 <- ggplot(si, aes(x = Date, group = CountryName)) +
+  geom_rect(aes(xmin=as.Date("2020-03-11"), xmax=as.Date("2020-06-22"), ymin=-Inf, ymax=Inf), fill="grey90", alpha=0.5) +
+  geom_line(aes(y = StringencyIndex, color = CountryName), size = 1) +
+  #geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
+  #scale_colour_brewer(palette="Reds") +
+  scale_colour_manual(values = c("#E69F00", "#56B4E9", "#009E73"))+
+  scale_x_date(date_breaks = "1 month", date_labels = "%b", limits=c(as.Date("2020-01-01"), as.Date("2020-11-30"))) +
+  annotate(geom = "text", x = first(si$Date), y = Inf, label = "a", hjust = 1.2, vjust = 2, fontface = 2, family = "") +
+  ylim(c(0,100))+
+  ylab("Stringency Index") + xlab("") +
+  theme_article() +
+  theme(legend.position = c(0.85, 0.2), legend.title = element_blank())
+
+
+
 # plot (all vessels)
-p1 <- ggplot(filter(change, type=="All")) +
+p2 <- ggplot(filter(change, type=="All")) +
   geom_rect(aes(xmin=as.Date("2020-03-11"), xmax=as.Date("2020-06-22"), ymin=-Inf, ymax=Inf), fill="grey90", alpha=0.5) +
   geom_col(aes(x = date2020, y = change_per, fill = change_positive), alpha=1, width=1) +
-  geom_point(data = filter(max_decline, type=="All vessels"), aes(x=date_max, y=max_drop), shape=1, size=3, stroke=1)+
+  geom_point(data = filter(max_decline, type=="All"), aes(x=date_max, y=max_drop), shape=1, size=3, stroke=1)+
   ylab("") + xlab("") +
   #geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
-  geom_text(data = filter(max_decline, type=="All vessels"), aes(x=as.Date("2020-10-11"), y=-60,label=paste(format(round(max_drop, digits=1), nsmall = 1) , "%")))+
-  geom_text(data = filter(max_decline, type=="All vessels"), aes(x=as.Date("2020-05-01"), y=15, label=paste(format(round(median_drop, digits=1), nsmall = 1), "%")))+
+  geom_text(data = filter(max_decline, type=="All"), aes(x=as.Date("2020-01-11"), y=-60,label=paste(format(round(max_drop, digits=1), nsmall = 1) , "%")))+
+  geom_text(data = filter(max_decline, type=="All"), aes(x=as.Date("2020-05-01"), y=15, label=paste(format(round(median_drop, digits=1), nsmall = 1), "%")))+
+  annotate(geom = "text", x = first(change$date2020), y = Inf, label = "b", hjust = 1.2, vjust = 2, fontface = 2, family = "") +
   theme_article() +
   guides(fill = FALSE)
 
 
 # plot (categories)
-p2 <- ggplot(filter(change, type!="All")) +
+p3 <- ggplot(filter(change, type!="All")) +
   geom_rect(aes(xmin=as.Date("2020-03-11"), xmax=as.Date("2020-06-22"), ymin=-Inf, ymax=Inf), fill="grey90", alpha=0.5) +
   geom_col(aes(x = date2020, y = change_per, fill = change_positive), alpha=1, width=1) +
-  geom_point(data = filter(max_decline, type!="All vessels"), aes(x=date_max, y=max_drop), shape=1, size=3, stroke=1)+
+  geom_point(data = filter(max_decline, type!="All"), aes(x=date_max, y=max_drop), shape=1, size=2.5, stroke=1)+
   ylab("") + xlab("") +
   #geom_vline(xintercept = as.Date("2020-03-11"), linetype="dotted") +
   scale_x_date(date_breaks = "2 month", date_labels = "%b") +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
-  geom_text(data = filter(max_decline, type!="All vessels"), aes(x=as.Date("2020-09-11"), y=-80, label=paste(format(round(max_drop, digits=1), nsmall = 1) , "%")))+
-  geom_text(data = filter(max_decline, type!="All vessels"), aes(x=as.Date("2020-05-01"), y=100, label=paste(format(round(median_drop, digits=1), nsmall = 1), "%")))+
+  geom_text(data = filter(max_decline, type!="All"), aes(x=as.Date("2020-10-11"), y=-80, label=paste(format(round(max_drop, digits=1), nsmall = 1) , "%")))+
+  geom_text(data = filter(max_decline, type!="All"), aes(x=as.Date("2020-05-01"), y=100, label=paste(format(round(median_drop, digits=1), nsmall = 1), "%")))+
   facet_wrap(type ~ ., ncol = 2) +
   theme_article() +
   guides(fill = FALSE)
 
 
-p2 <- tag_facet(p2, x = first(mave_sel$date2020), y = -Inf, 
-                vjust = -12, hjust=0,
+# p3 <- tag_facet(p3, x = first(mave_sel$date2020), y = -Inf, 
+#                 vjust = -12, hjust=0,
+#                 open = "", close = "",
+#                 tag_pool = letters[-1])
+
+p3 <- tag_facet(p3, x= first(change$date2020),
                 open = "", close = "",
-                tag_pool = letters[-1])
+                tag_pool = letters[-c(1:2)])
 
 
 lay <- rbind(c(1,1),
              c(2,2),
-             c(2,2))
+             c(3,3),
+             c(3,3))
 
-p <- grid.arrange(p1, p2, layout_matrix = lay, left = textGrob("Relative change (%) in number of vessels", rot = 90, vjust = 1))
+p <- grid.arrange(p1, p2, p3, layout_matrix = lay, left = textGrob("Relative change (%) in number of vessels", rot = 90, vjust = 1))
 
 
 # export multi-panel plot
-out_file <- paste0(output_data, "/daily_change.png")
-ggsave(out_file, p, width=20, height=20, units = "cm")
+# out_file <- paste0(output_data, "/daily_change.png")
+# ggsave(out_file, p, width=20, height=20, units = "cm")
+
+out_file <- paste0(output_data, "/daily_change2.png")
+ggsave(out_file, p, width=18, height=22, units = "cm")
 
 
 
@@ -316,10 +357,10 @@ ggsave(out_file, p, width=20, height=20, units = "cm")
 # 4. Globe map with study area
 #-----------------------------------------------------------------
 
-bb <- st_as_sfc(st_bbox(c(xmin = -1.60, xmax = 9.93, ymax = 35.56, ymin = 43.45), crs = st_crs(4326)))
-p <- miniglobe(lon=0, lat=25, pol=bb)
-out_file <- paste0(output_data, "/globe.png")
-ggsave(out_file, p, width=10, height=10, units = "cm")
+# bb <- st_as_sfc(st_bbox(c(xmin = -1.60, xmax = 9.93, ymax = 35.56, ymin = 43.45), crs = st_crs(4326)))
+# p <- miniglobe(lon=0, lat=25, pol=bb)
+# out_file <- paste0(output_data, "/globe.png")
+# ggsave(out_file, p, width=10, height=10, units = "cm")
 
 
 

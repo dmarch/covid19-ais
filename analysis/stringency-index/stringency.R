@@ -10,6 +10,7 @@ library(egg)
 library(sf)
 library(forcats)
 library(tmap)
+library(pals)
 
 ## set output folder
 ## here we store plots
@@ -21,7 +22,7 @@ output_data <- "data/out/stringency"
 if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 
 ## set last date to process
-last_date <- "2020-07-31"
+last_date <- "2020-11-30"#"2020-07-31"
 
 
 #--------------------------------------------------------------------------------
@@ -96,14 +97,14 @@ p3 <- ggplot(filter(data, CountryName %in% WMedCountries), aes(x = Date, group =
   theme(legend.position = "none")
 
 # Barplot
-data_sub <-filter(data, CountryName %in% WMedCountries)
+data_sub <-filter(data, CountryName %in% WMedCountries, Date <= as.Date("2020-06-30"))
 data_sub$si_group <- cut(data_sub$StringencyIndex, 5) # 5
 data_sub$CountryName <- factor(data_sub$CountryName, levels = c("China", "South Korea", "Italy", "France", "India", "United States", "Spain"))
 data_sub$CountryName <- fct_rev(data_sub$CountryName)
 p4 <- ggplot(data_sub, aes(Date, CountryName, color = si_group, group=rev(CountryName))) +
   geom_line(size = 10.5, color="grey20") +
   geom_line(size = 10) +
-  scale_color_brewer(palette = "YlGnBu", direction=1, na.value = "grey70") + #brewer.ylgnbu(10). RdYlBu
+  scale_color_brewer(palette = "YlGnBu", direction=1, na.value = "grey70") + #brewer.ylgnbu(10). RdYlBu.YlGnBu
   labs(x=NULL, y=NULL) +
   scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0,0)) +
   theme_article() +
@@ -207,12 +208,12 @@ p5 <- ggplot(data_sub, aes(x = Date, y = CountryName, fill = si_group))+
 eez <- st_read("data/input/marine_regions/World_EEZ_v11_20191118_gpkg/eez_v11.gpkg")
 eez_iso <- unique(eez$ISO_SOV1)
 data <- data %>% filter(CountryCode %in% eez_iso)
-length(unique(data$CountryCode)) # 133 countries with EEZ
+length(unique(data$CountryCode)) # 137 countries with EEZ
 
 # calculate average and SD
 dailyAvgGlobal <- data %>%
   group_by(Date) %>%
-  filter(Date < as.Date(last_date)) %>%
+  filter(Date < as.Date("2020-06-30")) %>%
   summarize(StringencyIndexAvg = mean(StringencyIndex, na.rm=TRUE),
             StringencyIndexSd = sd(StringencyIndex, na.rm=TRUE))
 
@@ -234,8 +235,8 @@ ggsave(out_file, p, width=10, height=8, units = "cm")
 # Calculate average and sd
 april <- data %>%
   filter(Date >= as.Date("2020-04-01") & Date < as.Date("2020-04-30"))
-mean(april$StringencyIndex, na.rm=TRUE)  # 80.00187
-sd(april$StringencyIndex, na.rm=TRUE)  # 14.78759
+mean(april$StringencyIndex, na.rm=TRUE)  # 80.0756
+sd(april$StringencyIndex, na.rm=TRUE)  # 14.73221
 
 
 #--------------------------------------------------------------------------------
@@ -337,7 +338,7 @@ p1 <- tm_shape(box) +
               border.col = "grey10", 
               border.alpha = 0.3,
               legend.show = TRUE,
-              legend.is.portrait = T) +
+              legend.is.portrait = F) +
   tm_layout(#title = paste(month.abb[i], 2020), title.size = 2, title.position = c("center","bottom"),
             frame = F,
             legend.show=TRUE,
