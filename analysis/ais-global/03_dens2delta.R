@@ -108,7 +108,10 @@ for (i in 1:length(dates_post)){
     
     # transform into Mollweide
     delta_mol <- projectRaster(delta, res = 27750, crs = "+proj=moll", method="bilinear")
+    per_mol <- projectRaster(per, res = 27750, crs = "+proj=moll", method="bilinear")
     writeRaster(delta_mol, paste0(out_dir_month, sprintf("%s_%s_%s_delta_mol.tif", jvar, idate_post, idate_pre)), overwrite=TRUE)
+    writeRaster(per_mol, paste0(out_dir_month, sprintf("%s_%s_%s_per_mol.tif", jvar, idate_post, idate_pre)), overwrite=TRUE)
+    
   }
 }
 

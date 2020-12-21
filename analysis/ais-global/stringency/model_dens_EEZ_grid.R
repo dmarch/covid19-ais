@@ -42,36 +42,80 @@ if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 # import data
 # density data at grid cell level
 data <- read.csv("data/out/ais-global/eez/eez_ais_density.csv")
-
-
-# import EEZ
-# source: marineregions
-eez <- st_read("data/input/marine_regions/World_EEZ_v11_20191118_gpkg/eez_v11_covid.gpkg")
-eez <- eez %>%
-  mutate(TERRITORY1 = as.character(TERRITORY1),
-         SOVEREIGN1 = as.character(SOVEREIGN1)) %>%
-  filter(!POL_TYPE %in% c("Joint regime"), # remove joint regimes
-         TERRITORY1!="Antarctica",  # remove Antarctica
-         TERRITORY1 == SOVEREIGN1,  # select main territories (excludes overseas)
-         AREA_KM2>(769*3)) # remove EEZ smaller than 3 grid sizes at equator
-
-# select EEZ:
-# main territories (TERRITORY1 name = SOVEREIGN1 name)
-data <- data %>%
-  mutate(date = parse_date_time(date, "Ymd")) %>%
-  filter(MRGID %in% eez$MRGID)
+data$date <- ymd(data$date)
 
 
 # filter by ship type
 vars <- c("COUNT",  "CARGO", "TANKER","PASSENGER", "FISHING","OTHER")
 
+
+
+
+#---------------------------------------------
+# Import and prepare Stringency Idenx
+#---------------------------------------------
+# import Stringency index
+# see stringency.R
+si <- read.csv("data/out/stringency/stringency.csv")
+
+# Calculate median
+si_sum <- si %>%
+  group_by(CountryCode, Month) %>%
+  summarize(SiAvg = mean(StringencyIndex)) %>%
+  mutate(date = as.Date(paste(2020, Month, 1, sep="-"))) %>%
+  dplyr::select(-Month)
+
+
+
+#---------------------------------------------
+# Import World Bank indicators
+#---------------------------------------------
+
+# income groups and regions
+# source: https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups
+classfile <- "data/input/worldbank/CLASS.xls"
+class <- read.xlsx(classfile, sheetName = "List of economies", header=TRUE, startRow = 5, endRow = 224)
+class <- dplyr::select(class, Code, Income.group, Region) %>% rename(ISO = Code, income = Income.group, region = Region)
+class <- class[-1,]  # remove first row
+
+# rename factors
+class$income <- as.character(class$income)
+class$income[class$income == "High income"] <- "High"
+class$income[class$income == "Upper middle income"] <- "Upper middle"
+class$income[class$income == "Lower middle income"] <- "Lower middle"
+class$income[class$income == "Low income"] <- "Low"
+class$income <- factor(class$income, levels=c("High", "Upper middle", "Lower middle", "Low"))
+
+
+#---------------------------------------------
+# Combine Count data and Stringency Idenx
+#---------------------------------------------
+
+# combine with countries with EEZ by ISO code
+# first, filter countries without SI
+# then combine data by date and country code
+sdata <- data %>%
+  filter(ISO_SOV1 %in% unique(si_sum$CountryCode)) %>%
+  left_join(si_sum, by = c("ISO_SOV1" = "CountryCode", "date" = "date")) %>%
+  left_join(class, by = c("ISO_SOV1" = "ISO")) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # create list to append all models
 model_list <- list()
 change_list <- list()
-
-# import country map
-library(tmap)
-data("World")
 
 
 ## LOOP FOR EACH SHIP CATEGORY
@@ -80,50 +124,6 @@ for(j in 1:length(vars)){
 # select data for category (j)
 jvar <- vars[j]
 jdata <- filter(data, var == jvar)
-
-# Summary statistics
-sdata <- jdata %>%
-  group_by(ISO_SOV1, TERRITORY1, date) %>%
-  filter(vessels_km2 > 0) %>%
-  summarize(medDens = median(vessels_km2),
-            avgDens = mean(vessels_km2),
-            #surface = sum(eez_km2),
-            stdev = sd(vessels_km2),
-            ncells = n()) %>%
-  mutate(month = month(date),
-         year = year(date),
-         avgDensLog = log10(avgDens))
-
-# select countries with at least 3 cells and data for all months (n=128)
-select_countries <- sdata %>%
-  group_by(ISO_SOV1, TERRITORY1) %>%
-  filter(ncells > 3) %>%
-  summarize(n_months = n()) %>%
-  filter(n_months == 12)
-
-# filter dataset per selected countries
-jdata <- jdata %>% filter(ISO_SOV1 %in% select_countries$ISO_SOV1)
-sdata <- sdata %>% filter(ISO_SOV1 %in% select_countries$ISO_SOV1)
-
-
-# calculate change (delta means)
-change <- sdata %>%
-  dcast(ISO_SOV1 + TERRITORY1 + month ~ year, value.var=c("avgDens")) %>%
-  rename(dens2019 = `2019`, dens2020 = `2020`) %>%
-  mutate(delta = dens2020 - dens2019,
-         per = 100*(delta/dens2019),
-         date = as.Date(paste(2020, month, 1, sep="-")),
-         var = jvar)
-
-# calculate change (standard error)
-change_se <- sdata %>%
-  dcast(ISO_SOV1 + TERRITORY1 + month + ncells ~ year, value.var=c("stdev")) %>%
-  rename(stdev2019 = `2019`, stdev2020 = `2020`) %>%
-  mutate(se = sqrt(((stdev2019^2)/ncells)+(stdev2020^2)/ncells),
-         date = as.Date(paste(2020, month, 1, sep="-")),
-         var = jvar)
-
-change$se <- change_se$se
 
 
 #---------------------------------------------
@@ -184,7 +184,6 @@ sel_countries <- c("Spain", "France", "Italy", "China", "India", "United States"
 
 
 p3 <- ggplot(filter(change, TERRITORY1 %in% sel_countries), aes(x = date)) +
-  geom_ribbon(aes(ymin = delta-se, ymax = delta+se, fill=TERRITORY1),  alpha=.2, linetype=0) +
   geom_line(aes(y = delta, group = TERRITORY1, color = TERRITORY1), size = 1) +
   geom_hline(yintercept = 0, linetype="dotted") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
@@ -230,6 +229,11 @@ si_sum <- si %>%
   summarize(SiAvg = mean(StringencyIndex)) %>%
   mutate(date = as.Date(paste(2020, Month, 1, sep="-"))) %>%
   dplyr::select(-Month)
+
+# Calculate class
+si_sum$SiClass <- cut(si_sum$SiAvg, 4)
+levels(si_sum$SiClass) <- c("low", "midlow", "midhigh", "high")
+
 
 
 #---------------------------------------------
@@ -291,10 +295,8 @@ change_list[[j]] <- change
 #---------------------------------------------
 # change from baseline as a dependent variable in mixed models, specifically mixed models for repeat measurements (MMRM).
 
-change$month <- as.factor(change$month)
-
 # model
-m1 <- lmer(per ~ SiAvg*income + (1|ISO_SOV1), data = change)
+m1 <- lmer(per ~ SiAvg*income + (1|region/ISO_SOV1), data = change)
 
 # append model to list
 model_list[[j]] <- m1
@@ -304,27 +306,42 @@ model_list[[j]] <- m1
 # Residuals (plot map and moran)
 #---------------------------------------------
 
-# get residuals
-change$resid <- residuals(m1)
-
-
-# combine with countries with EEZ by ISO code
-map_data <- left_join(World, change, by = c("iso_a3" = "ISO_SOV1"))
-map_data <- map_data %>% filter(name != "Antarctica")
-
-# plot data (average)
-library(pals)
-p1 <- tm_shape(map_data) +
-  tm_polygons("resid",
-              #style="quantile",
-              title=("Residuals (average)"),
-              #palette = "YlGnBu", #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
-              border.col = "grey60",
-              border.alpha = 0.3) +
-  tm_layout(legend.title.size=1) +
-  tm_facets(by="month")
-
-
+# # get residuals
+# change$resid <- residuals(m1)
+# 
+# # summarize residuals per country
+# resid_eez <- change %>%
+#         group_by(ISO_SOV1) %>%
+#         summarize(resid_avg = mean(resid),
+#                   resid_sd = sd(resid))
+#         
+# # plot average
+# 
+# 
+# # combine with countries with EEZ by ISO code
+# map_data <- left_join(World, resid_eez, by = c("iso_a3" = "ISO_SOV1"))
+# map_data <- left_join(World, change, by = c("iso_a3" = "ISO_SOV1"))
+# map_data <- map_data %>% filter(name != "Antarctica")
+# 
+# # plot data (average)
+# library(pals)
+# p1 <- tm_shape(map_data) +
+#   tm_polygons("delta",
+#               #style="quantile",
+#               title=("Residuals (average)"),
+#               #palette = "YlGnBu", #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
+#               border.col = "grey60", 
+#               border.alpha = 0.3) +
+#   tm_layout(legend.title.size=1) +
+#   tm_facets(by="month")
+# 
+# p2 <- tm_shape(map_data) +
+#   tm_polygons("resid_sd",
+#               title=("Residuals (sd)"),
+#               palette = brewer.ylgnbu(10), #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
+#               border.col = "grey60", 
+#               border.alpha = 0.3) +
+#   tm_layout(legend.title.size=1)
 
 }
 
@@ -332,7 +349,12 @@ p1 <- tm_shape(map_data) +
 #----------------------------------------------------------------------
 # Summary table for LMM
 #----------------------------------------------------------------------
-out_file <- paste0(output_data, "/model2.doc")
+out_file <- paste0(output_data, "/", jvar, "_model.doc")
+out_file <- paste0(output_data, "/model.doc")
+
+tab_model(m1, p.val = "kr", show.df = FALSE, show.icc = FALSE, show.re.var = FALSE, file=out_file)
+tab_model(model_list[[1]], p.val = "kr", show.df = FALSE, show.icc = FALSE, show.re.var = FALSE, file=out_file)
+
 
 tab_model(model_list,
           p.val = "kr",
@@ -372,27 +394,6 @@ for(j in 1:length(vars)){
   out_file <- paste0(output_data, "/", jvar, "_int.png")
   ggsave(out_file, p, width=10, height=10, units = "cm")
 }
-
-
-#----------------------------------------------------------------------
-# Map residuals per month
-#----------------------------------------------------------------------
-
-
-
-# extract model
-m <- model_list[[1]]
-
-#get residuals
-res <- residuals(m)
-
-
-
-
-
-
-
-
 
 
 

@@ -48,10 +48,20 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 # import EEZ
 # source: marineregions
 eez <- st_read("data/input/marine_regions/World_EEZ_v11_20191118_gpkg/eez_v11_covid.gpkg")
+
+eez <- eez %>%
+  mutate(TERRITORY1 = as.character(TERRITORY1),
+         SOVEREIGN1 = as.character(SOVEREIGN1)) %>%
+  filter(!POL_TYPE %in% c("Joint regime", "Overlapping claim"), # remove joint regimes
+         TERRITORY1!="Antarctica",  # remove Antarctica
+         TERRITORY1 == SOVEREIGN1,  # select main territories (excludes overseas)
+         AREA_KM2>(769*3)) # remove EEZ smaller than 3 grid sizes at equator
+
 poly_moll <- eez %>%
-  filter(!POL_TYPE %in% c("Joint regime")) %>% # remove joint regimes
   clip_to_globe() %>%  # ensures no coordinates outside +-180, +-90
   st_transform("+proj=moll")
+
+
 
 
 # Prepare cluster for parallel computing
@@ -71,10 +81,11 @@ data <- bind_rows(foreach(j = 1:length(vars), .packages=c("dplyr", "raster", "ex
  
   # summarize data per polygon
   # weighted by the fraction of each cell that is covered by the polygon
-  extr <- exact_extract(rast, poly_moll, "mean")
-  
+  extr_mean <- exact_extract(rast, poly_moll, "mean")
+  extr_sd <- exact_extract(rast, poly_moll, "stdev")
+
   # generate data.frame
-  df <- data.frame(MRGID = poly_moll$MRGID, var = jvar, measure = "delta", value = extr)
+  df <- data.frame(MRGID = poly_moll$MRGID, var = jvar, measure = "delta", mean = extr_mean, sd = extr_sd)
   df
 })
 
@@ -97,18 +108,8 @@ poly_ais <- left_join(poly_moll, data, by = c("MRGID" = "MRGID"))
 df <- data.frame(poly_ais)
 df <- dplyr::select(df, -geom)
 
-# summarize
-df %>%
-  group_by(var) %>%
-  summarize(negative_eez = length(which(value < 0)),
-            positive_eez = length(which(value > 0)),
-            no_change = length(which(value == 0)),
-            total = length(value),
-            proportion_neg = 100 * (negative_eez / total),
-            proportion_pos = 100 * (positive_eez / total),
-            proportion_nochange = 100 * (no_change / total))
 
-length(unique(df$MRGID))  # number of EEZ: 255
+length(unique(df$MRGID))  # number of EEZ: 143
 
 
 
@@ -138,7 +139,7 @@ for(i in 1:length(vars)){
   
   # plot variable
   p1 <- tm_shape(filter(poly_ais, var == ivar), projection="+proj=moll +ellps=WGS84") +
-    tm_polygons("delta",
+    tm_polygons("mean",
                 style = "fixed",
                 breaks = breaks,
                 labels = labels,

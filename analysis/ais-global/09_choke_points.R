@@ -208,10 +208,13 @@ data <- bind_rows(foreach(i = 1:nrow(combinations), .packages=c("dplyr", "raster
   extr_med <- exact_extract(rast, poly_moll, "median")
   extr_sd <- exact_extract(rast, poly_moll, "stdev")
   extr_cv <- exact_extract(rast, poly_moll, "coefficient_of_variation")
+  extr_q25 <- exact_extract(rast, poly_moll, "quantile", quantiles = c(0.25))
+  extr_q75 <- exact_extract(rast, poly_moll, "quantile", quantiles = c(0.75))
+  
   
   # generate data.frame
   df <- data.frame(id = poly_moll$id, var = ivar, date = idate_post, measure = "delta",
-                   mean = extr_mean, median = extr_med, stdev = extr_sd, cv = extr_cv)
+                   mean = extr_mean, median = extr_med, stdev = extr_sd, cv = extr_cv, q25 = extr_q25, q75 = extr_q75)
   df
 })
 
@@ -278,6 +281,37 @@ p <- ggplot(filter(data, var == "COUNT", measure == "delta"), mapping=aes(x = mo
 # export plot
 out_file <- paste0(output_data, "/monthly_delta3.png")
 ggsave(out_file, p, width=20, height=8, units = "cm")
+
+
+
+## plot median with IQR
+
+p <- ggplot(filter(data, var == "COUNT", measure == "delta"), mapping=aes(x = month, y = median)) +
+  #geom_errorbar(aes(ymin = mean-(mean < 0)*stdev, ymax = mean+(mean > 0)*stdev), width = 0.4, size=0.3) +
+  #geom_col(alpha=1, width=0.8, size=2) +
+  #geom_bar(aes(colour=change_positive), stat = "identity", size=0.5, width=0.8) +
+  #ylab(expression(Absolute~change~(Delta~vessel~transits~km^-2~month^-1))) +
+  geom_hline(yintercept = 0, linetype="dotted") +
+  geom_ribbon(aes(ymin = q25, ymax = q75, group = id, fill = id), alpha=.2, linetype=0) +
+  geom_line(aes(y = median, group = id, color = id), size = 1) +
+  ylab(expression(atop(Mean~absolute~change, paste((Delta~vessel~transits~km^-2~month^-1))))) +
+  xlab("Month") +
+  scale_x_continuous(breaks = 1:6) +
+  #scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
+  #scale_color_manual(values=c("#e34a33", "#9ecae1")) +
+  facet_wrap(name ~ ., ncol = 5) +
+  theme_article() +
+  theme(legend.position =  "none") +
+  guides(fill = FALSE)
+
+
+
+
+
+
+
+
+
 
 
 # plot per ship category
