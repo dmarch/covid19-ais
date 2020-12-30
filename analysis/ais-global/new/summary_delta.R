@@ -14,6 +14,7 @@ library(dplyr)
 library(raster)
 library(pals)
 library(reshape2)
+library(lubridate)
 
 # set input directory
 input_dir <- "data/out/ais-global/delta/"
@@ -161,7 +162,7 @@ data <- data.table::rbindlist(histo_list)
 outfile <- paste0(out_dir, "delta_values.csv")
 write.csv(data, outfile, row.names = FALSE)
 data <- read.csv(outfile)
-data$date <- ymd(data$date)
+#data$date <- ymd(data$date)
 
 # reorder vessel categories for plots
 data$var <- factor(data$var, levels=c("COUNT", "CARGO", "TANKER", "PASSENGER", "FISHING", "OTHER"))
