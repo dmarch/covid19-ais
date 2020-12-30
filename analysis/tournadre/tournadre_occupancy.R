@@ -63,7 +63,7 @@ k <- raster.kendall(ships, p.value=TRUE, z.value=TRUE,
 
 # keep brick
 writeRaster(k, "data/out/ais-global/occupancy/tournadre_trend.grd")
-
+k <- brick("data/out/ais-global/occupancy/tournadre_trend.grd")
 
 #---------------------------------------------------------------------
 # Calculate difference 2019 from average 2016-2018
@@ -145,7 +145,7 @@ plot(data$year, data$occ_km2)
 # 58,218,265
 #https://otexts.com/fpp2/stochastic-and-deterministic-trends.html
 
-data <- filter(data, year < 2020)
+data <- filter(data, year >= 2000, year < 2020) #year >= 2000, 
 
 
 library(forecast)
@@ -182,16 +182,22 @@ ggAcf(data_ts) + theme_light() + labs(title = "ACF plot of Marine traffic occupa
 
 aarim = data_ts %>% 
   auto.arima() %>% 
-  forecast(h = 5, level = 0.85)
-aarim %>% 
-  autoplot() + 
-  theme_article()
+  forecast(h = 5, level = c(80, 95))
 
-plot(aarim)
+
+p <- aarim %>% 
+  autoplot() + 
+  xlab("")+
+  ylab(expression(Occupancy~(km^2))) +
+  theme_article() +
+  theme(plot.margin = unit(c(1, 1, 1, 1), "cm"))  # top, right, bottom, left
+
+out_file <- "data/out/ais-global/occupancy/arima_plot.png"
+ggsave(out_file, p, width=12, height=10, units = "cm")
 
 
 # Calculate % change for predicted 2020 in relation to 2019
 
 x1 <- data$occ_km2[data$year==2019]
-x2 <- aarim$mean[1]
-percentage_change <- 100*(x2-x1)/x1  # 2.53204
+xmean <- aarim$mean[1]
+percentage_change <- 100*(xmean-x1)/x1  #2.981492# 2.53204

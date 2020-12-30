@@ -179,41 +179,21 @@ out_file <- paste0(output_data, "/", jvar, "_eez_profiles_per.png")
 ggsave(out_file, p2, width=12, height=10, units = "cm")
 
 
-# individual country profiles
-sel_countries <- c("Spain", "France", "Italy", "China", "India", "United States", "South Korea", "Indonesia", "United Kingdom")
 
 
-p3 <- ggplot(filter(change, TERRITORY1 %in% sel_countries), aes(x = date)) +
-  geom_ribbon(aes(ymin = delta-se, ymax = delta+se, fill=TERRITORY1),  alpha=.2, linetype=0) +
-  geom_line(aes(y = delta, group = TERRITORY1, color = TERRITORY1), size = 1) +
-  geom_hline(yintercept = 0, linetype="dotted") +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
-  #scale_colour_brewer(palette="Set2") +
-  ylab(expression(Absolute~change~(Delta~vessels~km^-2~month^-1))) +
-  xlab("") +
-  facet_wrap(TERRITORY1 ~ ., ncol = 3) +
-  theme_article() +
-  theme(legend.position = "none")
-
-# export multi-panel plot
-out_file <- paste0(output_data, "/", jvar, "_eez_individual_profiles_delta.png")
-ggsave(out_file, p3, width=18, height=14, units = "cm")
-
-
-p4 <- ggplot(filter(change, TERRITORY1 %in% sel_countries), aes(x = date)) +
-  geom_line(aes(y = per, group = TERRITORY1, color = TERRITORY1), size = 1) +
-  geom_hline(yintercept = 0, linetype="dotted") +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
-  #scale_colour_brewer(palette="Set2") +
-  ylab("Relative change (%)") +
-  xlab("") +
-  facet_wrap(TERRITORY1 ~ ., ncol = 3) +
-  theme_article() +
-  theme(legend.position = "none")
-
-out_file <- paste0(output_data, "/", jvar, "_eez_individual_profiles_per.png")
-ggsave(out_file, p4, width=18, height=14, units = "cm")
-
+# p4 <- ggplot(filter(change, TERRITORY1 %in% sel_countries), aes(x = date)) +
+#   geom_line(aes(y = per, group = TERRITORY1, color = TERRITORY1), size = 1) +
+#   geom_hline(yintercept = 0, linetype="dotted") +
+#   scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
+#   #scale_colour_brewer(palette="Set2") +
+#   ylab("Relative change (%)") +
+#   xlab("") +
+#   facet_wrap(TERRITORY1 ~ ., ncol = 5, scales="free") +
+#   theme_article() +
+#   theme(legend.position = "none")
+# 
+# out_file <- paste0(output_data, "/", jvar, "_eez_individual_profiles_per.png")
+# ggsave(out_file, p4, width=18, height=14, units = "cm")
 
 
 
@@ -252,6 +232,9 @@ class$income[class$income == "Low income"] <- "Low"
 class$income <- factor(class$income, levels=c("High", "Upper middle", "Lower middle", "Low"))
 
 
+
+
+
 #---------------------------------------------
 # Combine Count data and Stringency Idenx
 #---------------------------------------------
@@ -286,12 +269,56 @@ jdata <- jdata %>%
 change_list[[j]] <- change
 
 
+
+
+#------------------------------------------------------
+# plot selected countries by income group
+#------------------------------------------------------
+
+# individual country profiles
+sel_countries <- c("Spain", "France", "Italy", "China", "India", "United States", "Australia", "Canada",
+                   "South Korea", "Indonesia", "United Kingdom","Peru", "Iran", "Bahrain", 
+                   "Qatar", "United Arab Emirates", "Sudan", "Cuba",  "Brazil", "Argentina",
+                   "Germany", "Netherlands", "Norway", "Colombia", "Senegal", "Vietnam", "Djibuti", "Mozambique",
+                   "South Africa", "Haiti", "Belgium", "New Zeland", "Nigeria", "Federal Republic of Somalia",
+                   "Russia")
+
+
+sel_countries <- c("China", "India", "United States", "Australia", "Canada",
+                   "South Korea", "Indonesia", "United Kingdom","Peru", 
+                   "United Arab Emirates",  "Brazil",
+                   "South Africa", "Russia", "Mozambique")
+
+
+p3 <- ggplot(filter(change, TERRITORY1 %in% sel_countries), aes(x = date)) +
+  geom_ribbon(aes(ymin = delta-se, ymax = delta+se, fill=income),  alpha=.2, linetype=0) +
+  geom_line(aes(y = delta, group = TERRITORY1, color = income), size = 1) +
+  geom_hline(yintercept = 0, linetype="dotted") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
+  scale_colour_brewer(palette="Set1") +
+  scale_fill_brewer(palette="Set1") +
+  ylab(expression(Absolute~change~(Delta~vessels~km^-2~month^-1))) +
+  xlab("") +
+  facet_wrap(TERRITORY1 ~ ., ncol = 3, scales="free") +
+  theme_article() +
+  theme(legend.position = "bottom")
+
+# export multi-panel plot
+out_file <- paste0(output_data, "/", jvar, "_eez_individual_profiles_delta.png")
+ggsave(out_file, p3, width=20, height=20, units = "cm")
+
+
+
+
+
+
+
 #---------------------------------------------
 # Model delta
 #---------------------------------------------
 # change from baseline as a dependent variable in mixed models, specifically mixed models for repeat measurements (MMRM).
 
-change$month <- as.factor(change$month)
+#change$month <- as.factor(change$month)
 
 # model
 m1 <- lmer(per ~ SiAvg*income + (1|ISO_SOV1), data = change)
@@ -304,26 +331,26 @@ model_list[[j]] <- m1
 # Residuals (plot map and moran)
 #---------------------------------------------
 
-# get residuals
-change$resid <- residuals(m1)
-
-
-# combine with countries with EEZ by ISO code
-map_data <- left_join(World, change, by = c("iso_a3" = "ISO_SOV1"))
-map_data <- map_data %>% filter(name != "Antarctica")
-
-# plot data (average)
-library(pals)
-p1 <- tm_shape(map_data) +
-  tm_polygons("resid",
-              #style="quantile",
-              title=("Residuals (average)"),
-              #palette = "YlGnBu", #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
-              border.col = "grey60",
-              border.alpha = 0.3) +
-  tm_layout(legend.title.size=1) +
-  tm_facets(by="month")
-
+# # get residuals
+# change$resid <- residuals(m1)
+# 
+# 
+# # combine with countries with EEZ by ISO code
+# map_data <- left_join(World, change, by = c("iso_a3" = "ISO_SOV1"))
+# map_data <- map_data %>% filter(name != "Antarctica")
+# 
+# # plot data (average)
+# library(pals)
+# p1 <- tm_shape(map_data) +
+#   tm_polygons("resid",
+#               #style="quantile",
+#               title=("Residuals (average)"),
+#               #palette = "YlGnBu", #brewer.ylgnbu(10) # YlGnBu, -RdYlBu
+#               border.col = "grey60",
+#               border.alpha = 0.3) +
+#   tm_layout(legend.title.size=1) +
+#   tm_facets(by="month")
+# 
 
 
 }

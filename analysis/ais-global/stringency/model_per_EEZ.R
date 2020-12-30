@@ -157,7 +157,7 @@ data <- data %>%
 #--------------------------------------------------
 
 # individual country profiles
-sel_countries <- c("Spain", "France", "Italy", "China", "India", "United States", "South Korea", "Indonesia", "United Kingdom", "Belgium")
+sel_countries <- c("Spain", "France", "Italy", "China", "India", "United States", "South Korea", "Indonesia", "United Kingdom")
 
 
 # calculate monthly summaries
@@ -165,7 +165,7 @@ month_sum <- data %>%
   group_by(date, var) %>%
   summarize(n = n(),
             avg = mean(mean, na.rm=TRUE),
-            avg = mean(median, na.rm=TRUE))
+            med = mean(median, na.rm=TRUE))
             
 # Plot time series all countries in the same plot
 p1 <- ggplot(filter(data), aes(x = date)) +

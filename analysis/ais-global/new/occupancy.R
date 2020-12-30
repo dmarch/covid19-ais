@@ -89,7 +89,8 @@ data$month <- month(data$date)
 # reorder vessel categories for plots
 data$var <- factor(data$var, levels=c("COUNT", "CARGO", "TANKER", "PASSENGER", "FISHING", "OTHER"))
 
-
+# filter data per study period
+data <- filter(data, month <= 6)
 
 
 ## Plot data
@@ -123,7 +124,10 @@ change <- dataw %>%
   ) %>%
   mutate(monthAbb = month.abb[month])
 
+# levels for plot
 change$monthAbb <- factor(change$monthAbb, levels=month.abb[1:7])
+#change$var <- factor(change$var, levels=c("All vessels", "Cargo", "Tanker", "Fishing", "Other vessels"))
+levels(change$var) <- c("All vessels", "Cargo", "Tanker", "Passsenger","Fishing", "Other vessels")
 
 p2 <- ggplot(change, mapping=aes(x = monthAbb, y = per, fill = change_positive)) +
   geom_col(alpha=1, width=0.8) +
@@ -131,18 +135,18 @@ p2 <- ggplot(change, mapping=aes(x = monthAbb, y = per, fill = change_positive))
   #scale_x_continuous( breaks = c(1,3,5), labels = month.abb[c(1, 3,5)]) +  # , labels = month.abb[1:6]
   #scale_x_continuous(breaks = 1:6) +
   scale_fill_manual(values=c("#e34a33", "#9ecae1")) +
-  scale_y_continuous(labels = scales::percent)+
+  scale_y_continuous(labels = scales::percent, position = "left")+
   facet_wrap(var ~ ., ncol = 3) +
   xlab("") + ylab("Relative change in occupancy") +
   theme_article() +
   guides(fill = FALSE)
 
 # add tags
-p2 <- tag_facet(p2, open = "", close = "")
+#p2 <- tag_facet(p2, open = "", close = "")
 
 # export multi-panel plot
 out_file <- paste0(output_dir, "occupancy_relative.png")
-ggsave(out_file, p2, width=18, height=10, units = "cm")
+ggsave(out_file, p2, width=16, height=10, units = "cm")
 
 #-----------------------------------------------------------------
 # 2. Compare count with expected

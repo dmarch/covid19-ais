@@ -160,7 +160,8 @@ for (j in 1:length(vars)){
 data <- data.table::rbindlist(histo_list)
 outfile <- paste0(out_dir, "delta_values.csv")
 write.csv(data, outfile, row.names = FALSE)
-
+data <- read.csv(outfile)
+data$date <- ymd(data$date)
 
 # reorder vessel categories for plots
 data$var <- factor(data$var, levels=c("COUNT", "CARGO", "TANKER", "PASSENGER", "FISHING", "OTHER"))
@@ -252,6 +253,8 @@ data_cnt <- data %>%
 
 # convert from wide to long format
 long <- melt(data_cnt, id.vars=c("var", "month"))
+levels(long$var) <- c("All vessels", "Cargo", "Tanker", "Passsenger","Fishing", "Other vessels")
+
 
 # plot data
 p <- ggplot(filter(long, variable!="nochange"), aes(x = month, y=value, group=variable)) +
@@ -263,15 +266,15 @@ p <- ggplot(filter(long, variable!="nochange"), aes(x = month, y=value, group=va
   scale_y_continuous(labels = scales::percent)+
   xlab("") + ylab("Proportion of grid cells") +
   theme_article() +
-  theme(legend.position = c(0.93, 0.95), legend.title = element_blank()) +
+  theme(legend.position = c(0.90, 0.95), legend.title = element_blank()) +
   guides(fill = FALSE)
 
 # add tags
-p <- tag_facet(p, open = "", close = "")
+#p <- tag_facet(p, open = "", close = "")
 
 # export multi-panel plot
 out_file <- paste0(out_dir, "ratio_increase_decrease.png")
-ggsave(out_file, p, width=18, height=10, units = "cm")
+ggsave(out_file, p, width=15.6, height=10, units = "cm")
 
 
 # ggplot(long, aes(x = month, y=value, fill=variable)) + 

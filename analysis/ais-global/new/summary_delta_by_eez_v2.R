@@ -59,6 +59,8 @@ sum_eez <- data %>%
 
 # import country map
 library(tmap)
+source("scr/fun_common.R")
+
 data("World")
 #World <- World %>% filter(name != "Antarctica")
 
@@ -133,4 +135,14 @@ out_file <- paste0(output_data, "/", sprintf("%s_eez_delta_iqr_jan_jun.png", iva
 tmap_save(tm = p2, filename = out_file, width=25, height=12, units = "cm")
 
 
+# plot empty map
+p3 <-   tm_shape(World, projection="+proj=moll +ellps=WGS84") +
+  tm_polygons(col="grey80", border.alpha = 0.5) +
+  tm_shape(box) +
+  tm_polygons(alpha=0, border.col = "grey50") +
+  tm_layout(frame = FALSE, legend.title.size=1, legend.outside = TRUE)
 
+
+# export plot
+out_file <- paste0(output_data, "/", sprintf("eez_empty.png"))
+tmap_save(tm = p3, filename = out_file, width=25, height=12, units = "cm")
