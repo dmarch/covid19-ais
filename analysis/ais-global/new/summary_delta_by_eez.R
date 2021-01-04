@@ -49,13 +49,18 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 # source: marineregions
 eez <- st_read("data/input/marine_regions/World_EEZ_v11_20191118_gpkg/eez_v11_covid.gpkg")
 
+# import list of selected EEZ
+selected_countries <- read.csv("data/out/stringency/countries.csv")
+
+# select EEZ
 eez <- eez %>%
   mutate(TERRITORY1 = as.character(TERRITORY1),
          SOVEREIGN1 = as.character(SOVEREIGN1)) %>%
   filter(!POL_TYPE %in% c("Joint regime", "Overlapping claim"), # remove joint regimes
          TERRITORY1!="Antarctica",  # remove Antarctica
          TERRITORY1 == SOVEREIGN1,  # select main territories (excludes overseas)
-         AREA_KM2>(769*3)) # remove EEZ smaller than 3 grid sizes at equator
+         AREA_KM2>(769*3)) %>% # remove EEZ smaller than 3 grid sizes at equator
+  filter(ISO_SOV1 %in% selected_countries$x)
 
 poly_moll <- eez %>%
   clip_to_globe() %>%  # ensures no coordinates outside +-180, +-90
@@ -92,6 +97,15 @@ data <- bind_rows(foreach(j = 1:length(vars), .packages=c("dplyr", "raster", "ex
 stopCluster(cl)  # Stop cluster
 
 
+#----------------------------------------------------
+# Part 2. Calculate percentage (%) of countries
+# with decreases (all vessels)
+#----------------------------------------------------
+
+count_vessels <- data %>%
+  filter(var == "COUNT")
+
+100*sum(count_vessels$mean < 0)/nrow(count_vessels)
 
 
 

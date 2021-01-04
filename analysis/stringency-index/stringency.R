@@ -53,7 +53,8 @@ data <- filter(data, RegionName == "")
 
 # Store a version for further reproducibility
 write.csv(data, paste0(output_data, "/stringency.csv"), row.names=FALSE)
-
+#data <- read.csv(paste0(output_data, "/stringency.csv"))
+#data$Date <- ymd(data$Date)
 
 #--------------------------------------------------------------------------------
 # 2. Plot timeline of Individual countries
@@ -115,84 +116,84 @@ out_file <- paste0(output_plot, "/country_timeline.png")
 ggsave(out_file, p4, width=11, height=8, units = "cm")
 
 
-# Heat map
-library(RColorBrewer)
-library(viridis)
-library(pals)
-textcol <- "grey40"
-
-
-# for each country calculate the first date when they start increasing stringency index
-first_increase <- data %>%
-                    filter(StringencyIndex > 50) %>%
-                    group_by(CountryName) %>%
-                    summarize(first_date = first(Date)) %>% 
-                    arrange(first_date)
-                    
-
-data_sub <-filter(data, CountryName %in% first_increase$CountryName)
-data_sub$CountryName <- factor(data_sub$CountryName, levels = first_increase$CountryName)
-data_sub$CountryName <- fct_rev(data_sub$CountryName)
-
-# create discrete categories
-data_sub$si_group <- cut(data_sub$StringencyIndex, 10)
-data_sub <-filter(data_sub, CountryName %in% WMedCountries)
-
-
-data_sub <- data_sub %>%
-        mutate(si_group=cut(StringencyIndex, breaks=c(-1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100),
-                            labels=seq(10,100,10)))
-
-
-m4 <- m3 %>%
-  # convert state to factor and reverse order of levels
-  mutate(state=factor(state,levels=rev(sort(unique(state))))) %>%
-  # create a new variable from count
-  mutate(countfactor=cut(count,breaks=c(-1,0,1,10,100,500,1000,max(count,na.rm=T)),
-                         labels=c("0","0-1","1-10","10-100","100-500","500-1000",">1000"))) %>%
-  # change level order
-  mutate(countfactor=factor(as.character(countfactor),levels=rev(levels(countfactor))))
-
-
-
-#basic ggplot
-p5 <- ggplot(data_sub, aes(x = Date, y = CountryName, fill = si_group))+
-  #add border white colour of line thickness 0.25
-  geom_tile(colour="grey90",size=0.1)+
-  #remove extra space
-  scale_y_discrete(expand=c(0,0))+
-  #define new breaks on x-axis
-  scale_x_date(expand=c(0,0), date_breaks = "1 month", date_labels = "%b") +
-  #colors
-  scale_fill_manual(values=brewer.ylgnbu(5), na.value="grey90")+
-  #set a base size for all fonts
-  theme_grey(base_size=8)+
-  # labels and title
-  labs(x="",y="",title="Stringency index per country")+
-  # title legend
-  #guides(fill=guide_legend(label.position = "bottom", title="Stringency Index"))+
-  guides(fill = guide_legend(title="Stringency Index",
-                             reverse = FALSE,
-                             title.position = "top",
-                             label.position = "bottom",
-                             keywidth = 3,
-                             nrow = 1)) +
-  coord_fixed(ratio = 20) +
-  #coord_equal() +
-  theme(legend.position="bottom",legend.direction="horizontal",
-        legend.spacing.x = unit(0, 'cm'),
-      legend.title=element_text(colour=textcol),
-      legend.margin=margin(grid::unit(0,"cm")),
-      legend.text=element_text(colour=textcol,size=7,face="bold"),
-      legend.key.height=grid::unit(0.8,"cm"),
-      legend.key.width=grid::unit(0.2,"cm"),
-      axis.text.x=element_text(size=10,colour=textcol),
-      axis.text.y=element_text(vjust=0.2,colour=textcol),
-      axis.ticks=element_line(size=0.4),
-      plot.background=element_blank(),
-      panel.border=element_blank(),
-      plot.margin=margin(0.7,0.4,0.1,0.2,"cm"),
-      plot.title=element_text(colour=textcol,hjust=0,size=14,face="bold"))
+# # Heat map
+# library(RColorBrewer)
+# library(viridis)
+# library(pals)
+# textcol <- "grey40"
+# 
+# 
+# # for each country calculate the first date when they start increasing stringency index
+# first_increase <- data %>%
+#                     filter(StringencyIndex > 50) %>%
+#                     group_by(CountryName) %>%
+#                     summarize(first_date = first(Date)) %>% 
+#                     arrange(first_date)
+#                     
+# 
+# data_sub <-filter(data, CountryName %in% first_increase$CountryName)
+# data_sub$CountryName <- factor(data_sub$CountryName, levels = first_increase$CountryName)
+# data_sub$CountryName <- fct_rev(data_sub$CountryName)
+# 
+# # create discrete categories
+# data_sub$si_group <- cut(data_sub$StringencyIndex, 10)
+# data_sub <-filter(data_sub, CountryName %in% WMedCountries)
+# 
+# 
+# data_sub <- data_sub %>%
+#         mutate(si_group=cut(StringencyIndex, breaks=c(-1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100),
+#                             labels=seq(10,100,10)))
+# 
+# 
+# m4 <- m3 %>%
+#   # convert state to factor and reverse order of levels
+#   mutate(state=factor(state,levels=rev(sort(unique(state))))) %>%
+#   # create a new variable from count
+#   mutate(countfactor=cut(count,breaks=c(-1,0,1,10,100,500,1000,max(count,na.rm=T)),
+#                          labels=c("0","0-1","1-10","10-100","100-500","500-1000",">1000"))) %>%
+#   # change level order
+#   mutate(countfactor=factor(as.character(countfactor),levels=rev(levels(countfactor))))
+# 
+# 
+# 
+# #basic ggplot
+# p5 <- ggplot(data_sub, aes(x = Date, y = CountryName, fill = si_group))+
+#   #add border white colour of line thickness 0.25
+#   geom_tile(colour="grey90",size=0.1)+
+#   #remove extra space
+#   scale_y_discrete(expand=c(0,0))+
+#   #define new breaks on x-axis
+#   scale_x_date(expand=c(0,0), date_breaks = "1 month", date_labels = "%b") +
+#   #colors
+#   scale_fill_manual(values=brewer.ylgnbu(5), na.value="grey90")+
+#   #set a base size for all fonts
+#   theme_grey(base_size=8)+
+#   # labels and title
+#   labs(x="",y="",title="Stringency index per country")+
+#   # title legend
+#   #guides(fill=guide_legend(label.position = "bottom", title="Stringency Index"))+
+#   guides(fill = guide_legend(title="Stringency Index",
+#                              reverse = FALSE,
+#                              title.position = "top",
+#                              label.position = "bottom",
+#                              keywidth = 3,
+#                              nrow = 1)) +
+#   coord_fixed(ratio = 20) +
+#   #coord_equal() +
+#   theme(legend.position="bottom",legend.direction="horizontal",
+#         legend.spacing.x = unit(0, 'cm'),
+#       legend.title=element_text(colour=textcol),
+#       legend.margin=margin(grid::unit(0,"cm")),
+#       legend.text=element_text(colour=textcol,size=7,face="bold"),
+#       legend.key.height=grid::unit(0.8,"cm"),
+#       legend.key.width=grid::unit(0.2,"cm"),
+#       axis.text.x=element_text(size=10,colour=textcol),
+#       axis.text.y=element_text(vjust=0.2,colour=textcol),
+#       axis.ticks=element_line(size=0.4),
+#       plot.background=element_blank(),
+#       panel.border=element_blank(),
+#       plot.margin=margin(0.7,0.4,0.1,0.2,"cm"),
+#       plot.title=element_text(colour=textcol,hjust=0,size=14,face="bold"))
 
 # export figure
 #out_file <- paste0(output_plot, "/heatmap.png")
@@ -204,11 +205,28 @@ p5 <- ggplot(data_sub, aes(x = Date, y = CountryName, fill = si_group))+
 # 2. Plot timeline of average
 #--------------------------------------------------------------------------------
 
+
+# import EEZ
+# source: marineregions
+eez <- st_read("data/input/marine_regions/World_EEZ_v11_20191118_gpkg/eez_v11_covid.gpkg")
+nrow(eez) # 278
+
+# filter EEZ
+eez <- eez %>%
+  mutate(TERRITORY1 = as.character(TERRITORY1),
+         SOVEREIGN1 = as.character(SOVEREIGN1)) %>%
+  filter(!POL_TYPE %in% c("Joint regime", "Overlapping claim"), # remove joint regimes
+         TERRITORY1!="Antarctica",  # remove Antarctica
+         TERRITORY1 == SOVEREIGN1,  # select main territories (excludes overseas)
+         AREA_KM2>(769*3)) # remove EEZ smaller than 3 grid sizes at equator
+nrow(eez) # 143 EEZ selected
+
 # filter coastal countries
-eez <- st_read("data/input/marine_regions/World_EEZ_v11_20191118_gpkg/eez_v11.gpkg")
-eez_iso <- unique(eez$ISO_SOV1)
-data <- data %>% filter(CountryCode %in% eez_iso)
-length(unique(data$CountryCode)) # 137 countries with EEZ
+data <- data %>% filter(CountryCode %in% eez$ISO_SOV1,
+                        !is.na(StringencyIndex))
+length(unique(data$CountryCode)) # 124 countries with EEZ
+
+
 
 # calculate average and SD
 dailyAvgGlobal <- data %>%
@@ -235,8 +253,8 @@ ggsave(out_file, p, width=10, height=8, units = "cm")
 # Calculate average and sd
 april <- data %>%
   filter(Date >= as.Date("2020-04-01") & Date < as.Date("2020-04-30"))
-mean(april$StringencyIndex, na.rm=TRUE)  # 80.0756
-sd(april$StringencyIndex, na.rm=TRUE)  # 14.73221
+mean(april$StringencyIndex, na.rm=TRUE)  #  79.41252
+sd(april$StringencyIndex, na.rm=TRUE)  # 14.65187
 
 
 #--------------------------------------------------------------------------------
@@ -287,7 +305,7 @@ data("World")
 #data(countriesHigh, package = "rworldxtra", envir = environment())
 #World <- st_as_sf(countriesHigh)
 
-for(i in 1:7){
+for(i in 1:6){
   
   # Calculate median
   avgGlobal <- data %>%

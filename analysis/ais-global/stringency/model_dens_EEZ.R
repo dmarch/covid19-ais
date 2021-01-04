@@ -27,6 +27,7 @@ library(merTools)
 library(HLMdiag)
 library(DHARMa)
 library(sf)
+library(egg)
 #library(mixedup) # remotes::install_github('m-clark/mixedup')
 
 
@@ -50,7 +51,7 @@ eez <- st_read("data/input/marine_regions/World_EEZ_v11_20191118_gpkg/eez_v11_co
 eez <- eez %>%
   mutate(TERRITORY1 = as.character(TERRITORY1),
          SOVEREIGN1 = as.character(SOVEREIGN1)) %>%
-  filter(!POL_TYPE %in% c("Joint regime"), # remove joint regimes
+  filter(!POL_TYPE %in% c("Joint regime", "Overlapping claim"), # remove joint regimes
          TERRITORY1!="Antarctica",  # remove Antarctica
          TERRITORY1 == SOVEREIGN1,  # select main territories (excludes overseas)
          AREA_KM2>(769*3)) # remove EEZ smaller than 3 grid sizes at equator
@@ -94,7 +95,7 @@ sdata <- jdata %>%
          year = year(date),
          avgDensLog = log10(avgDens))
 
-# select countries with at least 3 cells and data for all months (n=128)
+# select countries with at least 3 cells and data for all months (n=143)
 select_countries <- sdata %>%
   group_by(ISO_SOV1, TERRITORY1) %>%
   filter(ncells > 3) %>%
