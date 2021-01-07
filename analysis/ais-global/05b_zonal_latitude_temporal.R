@@ -11,7 +11,7 @@ library(parallel)
 library(dplyr)
 library(ggplot2)
 library(egg)
-
+library(raster)
 
 # set input directory
 input_dir <- "data/out/ais-global/delta/"
@@ -28,11 +28,11 @@ vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
 
 # set dates
 dates_post <- c(
-  seq.Date(as.Date("2020-01-01"), as.Date("2020-07-01"), by = "month")
+  seq.Date(as.Date("2020-01-01"), as.Date("2020-06-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 dates_pre <- c(
-  seq.Date(as.Date("2019-01-01"), as.Date("2019-07-01"), by = "month")
+  seq.Date(as.Date("2019-01-01"), as.Date("2019-06-01"), by = "month")
 ) %>% format("%Y%m%d")
 
 
@@ -78,7 +78,7 @@ for (j in 1:length(vars)){
   }
 }
 
-data <- rbindlist(data_list)
+data <- data.table::rbindlist(data_list)
 
 
 #------------------------------------------------
@@ -103,7 +103,7 @@ p <- ggplot(filter(data, latitude > -70 & latitude < 70), aes(x = latitude)) + #
   geom_hline(yintercept = 0, linetype="dotted") +
   geom_line(aes(y = mean), colour="#3182bd", size = 0.5) + # colour="#3182bd", 
   scale_colour_brewer(palette = "Blues") +
-  ylab(expression(Traffic~density~change~(Delta~vessels/km^2))) + xlab("Latitude") +
+  ylab(expression(Traffic~density~change~(Delta~vessel~transits/km^2))) + xlab("Latitude") +
   ylim(-0.03, 0.01) +
   facet_wrap(var ~ ., ncol = 1) +
   theme_article() +
