@@ -76,7 +76,7 @@ world.sf <- sf::st_as_sf(world, coords = c("long", "lat"), crs = 4326) %>%
 
 # plot world map
 world <- ggplot() +
-  geom_sf(data = world.sf, colour = "gray90", fill = "gray90") + 
+  geom_sf(data = world.sf, colour = "gray80", fill = "gray80") + 
   theme(panel.background = element_rect(fill = 'white'))
 
 # plot chokepoints
@@ -87,8 +87,8 @@ p1 <- world +
     aes(label = name, geometry = geometry),
     stat = "sf_coordinates",
     min.segment.length = 0,
-    colour = "grey30",
-    segment.color = "grey30",
+    colour = "grey10",
+    segment.color = "grey10",
     size=4,
     nudge_x = choke_sf$x_nudge,
     nudge_y = choke_sf$y_nudge) +

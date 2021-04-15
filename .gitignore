@@ -41,5 +41,8 @@ vignettes/*.pdf
 # Data
 data/
 
+# results
+results/
+
 # Readme HTML
 README.html
