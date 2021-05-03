@@ -310,6 +310,43 @@ ggsave(out_file, p3, width=20, height=20, units = "cm")
 
 
 
+## Plot all individual countries
+## only when processing all vessels
+if(jvar=="COUNT"){
+  for(z in unique(change$TERRITORY1)){
+    pZ <- ggplot(filter(change, TERRITORY1 %in% z), aes(x = date)) +
+      geom_ribbon(aes(ymin = delta-se, ymax = delta+se),  alpha=.2, linetype=0, fill="steelblue") +
+      geom_line(aes(y = delta, group = TERRITORY1), size = 1, color="steelblue") +
+      geom_hline(yintercept = 0, linetype="dotted") +
+      scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
+      ylab(expression(Absolute~change~(Delta~vessels~km^-2~month^-1))) +
+      xlab("") +
+      labs(title = z,
+           subtitle = stringr::str_wrap(paste("Mean absolute change and standard deviation of marine
+                             traffic estimated within country Economic Exclusive Zones.
+                             Change estimated in comparison with monthly densities from equivalent
+                             month from reference year 2019.", "All vessel types."), width = 80),
+           caption = "Source: March et al. (2021) Nat Commun. (CC BY 4.0)") +
+      #facet_wrap(TERRITORY1 ~ ., ncol = 3, scales="free") +
+      theme_article(base_size=14) +
+      theme(plot.title = element_text(color = "black", size = 18, face = "bold"),
+            plot.subtitle = element_text(color = "grey30", size = 12),
+            plot.caption = element_text(color = "grey30", size = 12),
+            plot.margin = margin(1, 1, 1, 1, "cm"))
+    
+    # export multi-panel plot
+    output_data_eez <- paste0("fig/ais-global/deltaEEZ/")
+    if (!dir.exists(output_data_eez)) dir.create(output_data_eez, recursive = TRUE)
+    
+    out_file <- paste0(output_data_eez, "/", z, "_EEZ_Delta_", jvar, ".png")
+    ggsave(out_file, pZ, width=20, height=14, units = "cm")
+    }
+}
+
+
+
+
+
 
 
 
