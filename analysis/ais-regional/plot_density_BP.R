@@ -5,6 +5,8 @@ library(stringr)
 library(raster)
 library(lubridate)
 library(rgdal)
+library(RColorBrewer)
+library(pals)
 source("scr/fun_common.R")  # bb()
 source("scr/fun_ais.R")
 
@@ -17,6 +19,7 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 # select variables to compare
 vars <- c("COUNT", "FISHING", "PASSENGER", "CARGO", "TANKER", "OTHER")
+vars <- c("COUNT")
 
 # select months to process
 dates <- c(
@@ -61,7 +64,7 @@ for(j in 1:length(vars)){
   }
   
   # crop basedmap to cover the southern ocean (between 90S and 40S latitude)
-  s <- crop(s, extent(-30, 15, 10, 45))
+  s <- crop(s, extent(-40, 5, 0, 45))
   
   # reproject raster to polar stereographic projection (EPSG:3031)
   #s <- projectRaster(s, crs = crs("+init=epsg:3031"), method="ngb")
@@ -152,17 +155,22 @@ rasdf <- as.data.frame(s,xy=TRUE)%>%drop_na()
 
 
 world <- ne_countries(scale = "medium", returnclass = "sf")
-box = c(xmin = -30, ymin = 10, xmax = 15, ymax = 45)
+box = c(xmin = -40, ymin = 0, xmax = 5, ymax = 45)
 land <- st_crop(world, box)
 
 p <- ggplot()+
   geom_raster(aes(x=x,y=y,fill=layer),data=rasdf)+
   geom_sf(fill=grey(0.8),data=land)+
-  scale_fill_viridis_c('Transits month-1 km-2', trans="log10", direction = 1,
-                       breaks = trans_breaks("log10", function(x) 10^x),
-                       labels = trans_format("log10", math_format(10^.x)))+
+  # scale_fill_viridis_c('Transits month-1 km-2', trans="log10", direction = 1,
+  #                      breaks = trans_breaks("log10", function(x) 10^x),
+  #                      labels = trans_format("log10", math_format(10^.x)))+
+  scale_fill_distiller(palette = "Spectral",
+                       name=expression(Traffic~density~(transits~month^-1~km^-2)),
+                       trans="log10", direction = -1,
+                       breaks = trans_breaks("log10", function(x) 10^x, n=4),
+                       labels = trans_format("log10", math_format(10^.x))) +
   coord_sf(expand=c(0,0))+
-  labs(x='Longitude',y='Latitude')+
+  labs(x='',y='')+
   theme_article(base_size=16) +
   theme(legend.position = "bottom",
         legend.direction = "horizontal",
